@@ -249,20 +249,6 @@ export default function HomePage() {
             Building in public • Nigeria-first • Flare-powered
           </div>
 
-          <div
-            className="inline-flex items-center gap-1 rounded-2xl border p-1"
-            style={{ borderColor: "var(--border)", background: "var(--panel)" }}
-          >
-            <ThemeBtn active={theme === "system"} onClick={() => setThemeAndPersist("system")}>
-              System
-            </ThemeBtn>
-            <ThemeBtn active={theme === "light"} onClick={() => setThemeAndPersist("light")}>
-              Light
-            </ThemeBtn>
-            <ThemeBtn active={theme === "dark"} onClick={() => setThemeAndPersist("dark")}>
-              Dark
-            </ThemeBtn>
-          </div>
         </div>
 
         {/* HERO */}
