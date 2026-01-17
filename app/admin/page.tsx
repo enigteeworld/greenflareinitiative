@@ -21,9 +21,28 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
 
+  const [authenticated, setAuthenticated] = useState(false);
+  const [password, setPassword] = useState("");
+
+  async function authenticate() {
+    setMsg("");
+
+    const res = await fetch("/api/admin/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+
+    if (res.ok) {
+      setAuthenticated(true);
+      load();
+    } else {
+      setMsg("❌ Incorrect password");
+    }
+  }
+
   async function load() {
     setLoading(true);
-    setMsg("");
 
     const { data, error } = await supabase
       .from("submissions")
@@ -41,12 +60,12 @@ export default function AdminPage() {
   }
 
   async function approve(submissionId: string) {
-    const pointsStr = prompt("How many points to award? (e.g. 10)");
+    const pointsStr = prompt("How many points to award?");
     if (!pointsStr) return;
 
     const points = Number(pointsStr);
     if (!points || points <= 0) {
-      alert("Points must be a number greater than 0");
+      alert("Points must be greater than 0");
       return;
     }
 
@@ -65,20 +84,43 @@ export default function AdminPage() {
       return;
     }
 
-    setMsg(`✅ Approved! Tx hash: ${json.txHash}`);
-    await load();
+    setMsg(`✅ Approved! Tx: ${json.txHash}`);
+    load();
   }
 
-  useEffect(() => {
-    load();
-  }, []);
+  // 🔐 PASSWORD SCREEN
+  if (!authenticated) {
+    return (
+      <main className="max-w-md mx-auto px-6 py-20">
+        <h1 className="text-2xl font-bold text-center">Admin Access</h1>
+        <p className="mt-3 text-sm text-gray-600 text-center">
+          Enter admin password to continue
+        </p>
 
+        <input
+          type="password"
+          className="mt-6 w-full border rounded-md p-3"
+          placeholder="Admin password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button
+          onClick={authenticate}
+          className="w-full mt-4 px-4 py-3 rounded-md bg-black text-white font-semibold"
+        >
+          Unlock Admin
+        </button>
+
+        {msg && <p className="mt-3 text-sm text-center">{msg}</p>}
+      </main>
+    );
+  }
+
+  // ✅ ADMIN PANEL
   return (
     <main className="min-h-screen p-8 max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold">Admin — Verify Submissions</h1>
-      <p className="mt-2 text-sm opacity-70">
-        Approving a submission writes the impact permanently on Flare.
-      </p>
 
       {msg && <div className="mt-4 text-sm">{msg}</div>}
 
@@ -86,68 +128,56 @@ export default function AdminPage() {
         {loading ? (
           <p>Loading…</p>
         ) : items.length === 0 ? (
-          <p className="opacity-70">No submissions yet.</p>
+          <p>No submissions yet.</p>
         ) : (
           <div className="grid gap-4">
             {items.map((s) => (
               <div key={s.id} className="border rounded p-4">
-                <div className="flex flex-wrap justify-between gap-2">
-                  <div className="font-semibold">{s.action_type}</div>
-                  <div className="text-xs opacity-70">
+                <div className="flex justify-between text-sm">
+                  <span className="font-semibold">{s.action_type}</span>
+                  <span className="text-gray-400">
                     {new Date(s.created_at).toLocaleString()}
-                  </div>
+                  </span>
                 </div>
 
-                <div className="mt-2 text-sm">
-                  <div>
-                    <span className="opacity-70">User:</span>{" "}
-                    {s.user_address}
-                  </div>
-                  <div>
-                    <span className="opacity-70">Location:</span>{" "}
-                    {s.location_cell || "-"}
-                  </div>
-                  <div>
-                    <span className="opacity-70">Status:</span>{" "}
-                    {s.status}
-                  </div>
-                  {s.points !== null && (
-                    <div>
-                      <span className="opacity-70">Points:</span>{" "}
-                      {s.points}
-                    </div>
-                  )}
-                </div>
+                <p className="text-sm mt-2">
+                  <strong>User:</strong> {s.user_address}
+                </p>
+
+                {s.location_cell && (
+                  <p className="text-sm">
+                    <strong>Location:</strong> {s.location_cell}
+                  </p>
+                )}
 
                 {s.description && (
-                  <div className="mt-2 text-sm">
-                    {s.description}
-                  </div>
+                  <p className="mt-2 text-sm">{s.description}</p>
                 )}
 
                 {s.proof_url && (
-                  <div className="mt-3">
-                    <a
-                      href={s.proof_url}
-                      target="_blank"
-                      className="underline text-sm"
-                    >
-                      View proof
-                    </a>
-                  </div>
+                  <a
+                    href={s.proof_url}
+                    target="_blank"
+                    className="block mt-2 underline text-sm"
+                  >
+                    View proof
+                  </a>
                 )}
 
+                <p className="mt-2 text-sm">
+                  <strong>Status:</strong> {s.status}
+                </p>
+
                 {s.tx_hash && (
-                  <div className="mt-3 text-xs break-all">
-                    <span className="opacity-70">Tx:</span>{" "}
-                    {s.tx_hash}
-                  </div>
+                  <p className="text-xs break-all mt-1">
+                    Tx: {s.tx_hash}
+                  </p>
                 )}
 
                 {s.status === "pending" && (
                   <button
                     onClick={() => approve(s.id)}
-                    className="mt-4 px-4 py-2 rounded bg-black text-white"
+                    className="mt-4 px-4 py-2 rounded bg-green-600 text-white"
                   >
                     Approve (write on-chain)
                   </button>

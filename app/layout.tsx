@@ -5,7 +5,7 @@ import Footer from "./components/Footer";
 export const metadata = {
   title: "GreenFlare Initiative",
   description:
-    "Community-led environmental impact verified on-chain using Flare",
+    "Community-led environmental impact initiative building transparent, on-chain accountability on Flare.",
 };
 
 export default function RootLayout({
@@ -15,9 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen flex flex-col bg-white text-gray-900">
+      <body className="min-h-screen bg-[#070A0D] text-white antialiased">
         <Navbar />
-        <main className="flex-1">{children}</main>
+        <main className="min-h-[70vh]">{children}</main>
         <Footer />
       </body>
     </html>
