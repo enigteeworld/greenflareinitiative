@@ -36,7 +36,7 @@ transition"
           </div>
 
           <p className="mt-6 text-sm text-gray-500">
-            MVP running on Flare Coston2 testnet.GreenFlare is in early development — building 
+            MVP running on Flare Coston2 testnet.GreenFlare is in early development, building 
 transparent,
       community-led environmental impact on the Flare Network.
           </p>
