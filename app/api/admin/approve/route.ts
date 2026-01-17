@@ -8,10 +8,8 @@ const ADMIN_PRIVATE_KEY = process.env.ADMIN_PRIVATE_KEY as string;
 
 // Minimal ABI (MUST be on one line)
 const ABI = [
-  "function recordImpact(address user,uint8 actionType,uint256 points,bytes32 proofHash," +
-  "string locationCell)"
+  "function recordImpact(address user,uint8 actionType,uint256 points,bytes32 proofHash,string locationCell)",
 ];
-
 
 // Must match enum order in your contract
 function actionToEnum(action: string): number {
@@ -30,7 +28,10 @@ export async function POST(req: Request) {
 
     const pts = Number(points);
     if (!pts || pts <= 0) {
-      return NextResponse.json({ error: "Points must be greater than 0" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Points must be greater than 0" },
+        { status: 400 }
+      );
     }
 
     if (!REGISTRY_ADDRESS || !RPC_URL || !ADMIN_PRIVATE_KEY) {
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Submission not pending" }, { status: 400 });
     }
 
-    // Create proof hash
+    // Create proof hash (stable + deterministic)
     const payload = JSON.stringify({
       id: sub.id,
       user_address: sub.user_address,
@@ -68,13 +69,11 @@ export async function POST(req: Request) {
       created_at: sub.created_at,
     });
 
-const proofHash = ethers.keccak256(
-  ethers.toUtf8Bytes(payload)
-);
+    const proofHash = ethers.keccak256(ethers.toUtf8Bytes(payload));
 
     // Send transaction to Flare
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-   const wallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const wallet = new ethers.Wallet(ADMIN_PRIVATE_KEY, provider);
     const contract = new ethers.Contract(REGISTRY_ADDRESS, ABI, wallet);
 
     const tx = await contract.recordImpact(
@@ -87,13 +86,19 @@ const provider = new ethers.JsonRpcProvider(RPC_URL);
 
     await tx.wait();
 
-    // Update database
+    // ✅ Update database (store tx hash in the columns the homepage expects)
     const { error: updateError } = await sb
       .from("submissions")
       .update({
         status: "approved",
         points: pts,
+
+        // keep old field if you already use it anywhere
         tx_hash: tx.hash,
+
+        // new fields for public verification links
+        chain_tx: tx.hash,
+        chain_network: "coston2",
       })
       .eq("id", submissionId);
 
@@ -108,7 +113,7 @@ const provider = new ethers.JsonRpcProvider(RPC_URL);
     });
   } catch (e: any) {
     return NextResponse.json(
-      { error: e.message || "Server error" },
+      { error: e?.message || "Server error" },
       { status: 500 }
     );
   }

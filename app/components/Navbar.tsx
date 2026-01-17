@@ -3,158 +3,284 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-function clsx(...classes: Array<string | false | undefined>) {
-  return classes.filter(Boolean).join(" ");
+type ThemeMode = "system" | "light" | "dark";
+
+function getSystemTheme(): "light" | "dark" {
+  if (typeof window === "undefined") return "dark";
+  return window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light";
+}
+
+function applyTheme(mode: ThemeMode) {
+  const resolved = mode === "system" ? getSystemTheme() : mode;
+  const root = document.documentElement;
+
+  if (resolved === "dark") {
+    root.style.setProperty("--bg", "#070A0D");
+    root.style.setProperty("--bg2", "rgba(16, 185, 129, 0.08)");
+    root.style.setProperty("--panel", "rgba(255,255,255,0.05)");
+    root.style.setProperty("--panel2", "rgba(0,0,0,0.25)");
+    root.style.setProperty("--border", "rgba(255,255,255,0.10)");
+    root.style.setProperty("--text", "rgba(255,255,255,0.95)");
+    root.style.setProperty("--muted", "rgba(255,255,255,0.65)");
+    root.style.setProperty("--muted2", "rgba(255,255,255,0.45)");
+    root.style.setProperty("--accent", "#34D399");
+    root.style.setProperty("--accentText", "#07120E");
+    root.style.setProperty("--glow1", "rgba(52, 211, 153, 0.22)");
+    root.style.setProperty("--glow2", "rgba(56, 189, 248, 0.14)");
+    root.style.setProperty("--shadow", "0 0 0 1px rgba(255,255,255,0.03)");
+    root.style.colorScheme = "dark";
+  } else {
+    root.style.setProperty("--bg", "#F7FAF9");
+    root.style.setProperty("--bg2", "rgba(16, 185, 129, 0.10)");
+    root.style.setProperty("--panel", "rgba(255,255,255,0.78)");
+    root.style.setProperty("--panel2", "rgba(255,255,255,0.55)");
+    root.style.setProperty("--border", "rgba(15, 23, 42, 0.10)");
+    root.style.setProperty("--text", "rgba(15, 23, 42, 0.95)");
+    root.style.setProperty("--muted", "rgba(15, 23, 42, 0.65)");
+    root.style.setProperty("--muted2", "rgba(15, 23, 42, 0.50)");
+    root.style.setProperty("--accent", "#059669");
+    root.style.setProperty("--accentText", "#F8FAFC");
+    root.style.setProperty("--glow1", "rgba(16, 185, 129, 0.18)");
+    root.style.setProperty("--glow2", "rgba(59, 130, 246, 0.12)");
+    root.style.setProperty("--shadow", "0 12px 30px rgba(2, 6, 23, 0.06)");
+    root.style.colorScheme = "light";
+  }
+}
+
+function ThemePill({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className="px-3 py-1.5 text-xs font-semibold rounded-xl transition"
+      style={{
+        background: active ? "var(--bg2)" : "transparent",
+        border: active
+          ? "1px solid rgba(16,185,129,0.28)"
+          : "1px solid transparent",
+        color: "var(--text)",
+      }}
+    >
+      {children}
+    </button>
+  );
 }
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
+  const [theme, setTheme] = useState<ThemeMode>("system");
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll);
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const saved =
+      (localStorage.getItem("gf_theme") as ThemeMode | null) ?? "system";
+    setTheme(saved);
+    applyTheme(saved);
 
-  useEffect(() => {
-    // close drawer on route change feel (simple)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const onChange = () => {
+      const current =
+        (localStorage.getItem("gf_theme") as ThemeMode | null) ?? "system";
+      if (current === "system") applyTheme("system");
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    mq?.addEventListener?.("change", onChange);
+
+    return () => {
+      mq?.removeEventListener?.("change", onChange);
+    };
   }, []);
+
+  function setThemeAndPersist(mode: ThemeMode) {
+    setTheme(mode);
+    localStorage.setItem("gf_theme", mode);
+    applyTheme(mode);
+  }
 
   return (
     <header
-      className={clsx(
-        "sticky top-0 z-50",
-        scrolled
-          ? "bg-black/40 backdrop-blur-xl border-b border-white/10"
-          : "bg-transparent"
-      )}
+      className="sticky top-0 z-50 backdrop-blur"
+      style={{
+        background: "color-mix(in srgb, var(--bg) 85%, transparent)",
+        borderBottom: "1px solid var(--border)",
+      }}
     >
       <div className="mx-auto max-w-6xl px-4">
-        <div className="flex h-16 items-center justify-between">
+        <div className="flex h-16 items-center justify-between gap-3">
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2">
-            <span className="relative grid h-9 w-9 place-items-center rounded-xl bg-white/10 border border-white/15">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.55)]" />
-            </span>
+            <div
+              className="grid h-9 w-9 place-items-center rounded-xl"
+              style={{
+                background: "var(--bg2)",
+                border: "1px solid var(--border)",
+              }}
+              aria-hidden="true"
+            >
+              <span style={{ color: "var(--accent)" }}>🌱</span>
+            </div>
             <div className="leading-tight">
-              <div className="text-sm font-semibold tracking-wide">
+              <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
                 GreenFlare
               </div>
-              <div className="text-[11px] text-white/60 -mt-0.5">
-                On-chain impact, real-world change
+              <div className="text-[11px]" style={{ color: "var(--muted2)" }}>
+                Flare-powered impact
               </div>
             </div>
           </Link>
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-2">
-            <NavLink href="/submit">Submit Action</NavLink>
+            <NavLink href="/submit">Submit</NavLink>
             <NavLink href="/admin">Admin</NavLink>
 
             <a
               href="https://flare.network/"
               target="_blank"
               rel="noreferrer"
-              className="ml-2 inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold bg-emerald-400 text-black hover:bg-emerald-300 transition"
+              className="rounded-xl px-3 py-2 text-sm font-semibold transition"
+              style={{
+                border: "1px solid var(--border)",
+                background: "var(--panel)",
+                color: "var(--text)",
+              }}
             >
-              Built on Flare
+              Flare
             </a>
+
+            {/* Theme */}
+            <div
+              className="ml-2 inline-flex items-center gap-1 rounded-2xl border p-1"
+              style={{ borderColor: "var(--border)", background: "var(--panel)" }}
+            >
+              <ThemePill active={theme === "system"} onClick={() => setThemeAndPersist("system")}>
+                System
+              </ThemePill>
+              <ThemePill active={theme === "light"} onClick={() => setThemeAndPersist("light")}>
+                Light
+              </ThemePill>
+              <ThemePill active={theme === "dark"} onClick={() => setThemeAndPersist("dark")}>
+                Dark
+              </ThemePill>
+            </div>
           </nav>
 
-          {/* Mobile button */}
-          <button
-            onClick={() => setOpen(true)}
-            className="md:hidden inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold hover:bg-white/10 transition"
-            aria-label="Open menu"
-          >
-            Menu
-          </button>
+          {/* Mobile controls */}
+          <div className="md:hidden flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setThemeAndPersist(theme === "dark" ? "light" : "dark")}
+              className="rounded-xl px-3 py-2 text-sm font-semibold transition"
+              style={{ border: "1px solid var(--border)", background: "var(--panel)", color: "var(--text)" }}
+              aria-label="Toggle theme"
+            >
+              {getSystemTheme() === "dark" ? "☀️" : "🌙"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              className="rounded-xl px-3 py-2 text-sm font-semibold transition"
+              style={{ border: "1px solid var(--border)", background: "var(--panel)", color: "var(--text)" }}
+              aria-expanded={open}
+              aria-controls="mobile-nav"
+            >
+              {open ? "Close" : "Menu"}
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Mobile drawer */}
-      {open && (
-        <div className="md:hidden">
+        {/* Mobile dropdown */}
+        {open ? (
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
-          />
-          <div className="fixed right-0 top-0 h-full w-[86%] max-w-sm bg-[#0B0F14] border-l border-white/10 p-5">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">GreenFlare</div>
-              <button
-                onClick={() => setOpen(false)}
-                className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-semibold hover:bg-white/10 transition"
-              >
-                Close
-              </button>
-            </div>
+            id="mobile-nav"
+            className="md:hidden pb-4"
+          >
+            <div
+              className="rounded-2xl p-3"
+              style={{
+                border: "1px solid var(--border)",
+                background: "var(--panel)",
+              }}
+            >
+              <div className="grid gap-2">
+                <NavLink href="/submit" onClick={() => setOpen(false)}>Submit</NavLink>
+                <NavLink href="/admin" onClick={() => setOpen(false)}>Admin</NavLink>
 
-            <div className="mt-6 grid gap-2">
-              <DrawerLink href="/" onClick={() => setOpen(false)}>
-                Home
-              </DrawerLink>
-              <DrawerLink href="/submit" onClick={() => setOpen(false)}>
-                Submit Action
-              </DrawerLink>
-              <DrawerLink href="/admin" onClick={() => setOpen(false)}>
-                Admin
-              </DrawerLink>
+                <a
+                  href="https://flare.network/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-xl px-3 py-2 text-sm font-semibold transition"
+                  style={{
+                    border: "1px solid var(--border)",
+                    background: "var(--panel2)",
+                    color: "var(--text)",
+                  }}
+                >
+                  Flare Network
+                </a>
 
-              <a
-                href="https://flare.network/"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-emerald-400 text-black hover:bg-emerald-300 transition"
-              >
-                Built on Flare
-              </a>
-
-              <div className="mt-4 text-xs text-white/60 leading-relaxed">
-                GreenFlare is in active development. We’re building transparent
-                impact tracking and rewards for cleanups, recycling and tree
-                planting in Nigeria.
+                <div className="mt-2">
+                  <div className="text-xs font-semibold" style={{ color: "var(--muted2)" }}>
+                    Theme
+                  </div>
+                  <div
+                    className="mt-2 inline-flex items-center gap-1 rounded-2xl border p-1"
+                    style={{
+                      borderColor: "var(--border)",
+                      background: "var(--panel2)",
+                    }}
+                  >
+                    <ThemePill active={theme === "system"} onClick={() => setThemeAndPersist("system")}>
+                      System
+                    </ThemePill>
+                    <ThemePill active={theme === "light"} onClick={() => setThemeAndPersist("light")}>
+                      Light
+                    </ThemePill>
+                    <ThemePill active={theme === "dark"} onClick={() => setThemeAndPersist("dark")}>
+                      Dark
+                    </ThemePill>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        ) : null}
+      </div>
     </header>
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-medium text-white/80 hover:text-white hover:bg-white/5 transition"
-    >
-      {children}
-    </Link>
-  );
-}
-
-function DrawerLink({
+function NavLink({
   href,
   children,
   onClick,
 }: {
   href: string;
   children: React.ReactNode;
-  onClick: () => void;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
       onClick={onClick}
-      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold hover:bg-white/10 transition"
+      className="rounded-xl px-3 py-2 text-sm font-semibold transition"
+      style={{
+        border: "1px solid var(--border)",
+        background: "var(--panel)",
+        color: "var(--text)",
+      }}
     >
       {children}
     </Link>
