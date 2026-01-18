@@ -118,7 +118,11 @@ export default function Navbar() {
       <div className="mx-auto max-w-6xl px-4">
         <div className="flex h-16 items-center justify-between gap-3">
           {/* Brand */}
-          <Link href="/" className="flex items-center gap-2">
+          <Link
+            href="/"
+            className="flex items-center gap-2"
+            onClick={() => setOpen(false)}
+          >
             <div
               className="grid h-9 w-9 place-items-center rounded-xl"
               style={{
@@ -141,6 +145,10 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-2">
+            {/* ✅ NEW */}
+            <NavLink href="/">Home</NavLink>
+            <NavLink href="/leaderboard">🏆 Leaderboard</NavLink>
+
             <NavLink href="/submit">Submit</NavLink>
             <NavLink href="/admin">Admin</NavLink>
 
@@ -163,13 +171,22 @@ export default function Navbar() {
               className="ml-2 inline-flex items-center gap-1 rounded-2xl border p-1"
               style={{ borderColor: "var(--border)", background: "var(--panel)" }}
             >
-              <ThemePill active={theme === "system"} onClick={() => setThemeAndPersist("system")}>
+              <ThemePill
+                active={theme === "system"}
+                onClick={() => setThemeAndPersist("system")}
+              >
                 System
               </ThemePill>
-              <ThemePill active={theme === "light"} onClick={() => setThemeAndPersist("light")}>
+              <ThemePill
+                active={theme === "light"}
+                onClick={() => setThemeAndPersist("light")}
+              >
                 Light
               </ThemePill>
-              <ThemePill active={theme === "dark"} onClick={() => setThemeAndPersist("dark")}>
+              <ThemePill
+                active={theme === "dark"}
+                onClick={() => setThemeAndPersist("dark")}
+              >
                 Dark
               </ThemePill>
             </div>
@@ -181,7 +198,11 @@ export default function Navbar() {
               type="button"
               onClick={() => setThemeAndPersist(theme === "dark" ? "light" : "dark")}
               className="rounded-xl px-3 py-2 text-sm font-semibold transition"
-              style={{ border: "1px solid var(--border)", background: "var(--panel)", color: "var(--text)" }}
+              style={{
+                border: "1px solid var(--border)",
+                background: "var(--panel)",
+                color: "var(--text)",
+              }}
               aria-label="Toggle theme"
             >
               {getSystemTheme() === "dark" ? "☀️" : "🌙"}
@@ -191,7 +212,11 @@ export default function Navbar() {
               type="button"
               onClick={() => setOpen((v) => !v)}
               className="rounded-xl px-3 py-2 text-sm font-semibold transition"
-              style={{ border: "1px solid var(--border)", background: "var(--panel)", color: "var(--text)" }}
+              style={{
+                border: "1px solid var(--border)",
+                background: "var(--panel)",
+                color: "var(--text)",
+              }}
               aria-expanded={open}
               aria-controls="mobile-nav"
             >
@@ -202,10 +227,7 @@ export default function Navbar() {
 
         {/* Mobile dropdown */}
         {open ? (
-          <div
-            id="mobile-nav"
-            className="md:hidden pb-4"
-          >
+          <div id="mobile-nav" className="md:hidden pb-4">
             <div
               className="rounded-2xl p-3"
               style={{
@@ -214,8 +236,18 @@ export default function Navbar() {
               }}
             >
               <div className="grid gap-2">
-                <NavLink href="/submit" onClick={() => setOpen(false)}>Submit</NavLink>
-                <NavLink href="/admin" onClick={() => setOpen(false)}>Admin</NavLink>
+                {/* ✅ NEW */}
+                <NavLink href="/" onClick={() => setOpen(false)}>Home</NavLink>
+                <NavLink href="/leaderboard" onClick={() => setOpen(false)}>
+                  🏆 Leaderboard
+                </NavLink>
+
+                <NavLink href="/submit" onClick={() => setOpen(false)}>
+                  Submit
+                </NavLink>
+                <NavLink href="/admin" onClick={() => setOpen(false)}>
+                  Admin
+                </NavLink>
 
                 <a
                   href="https://flare.network/"
@@ -242,13 +274,22 @@ export default function Navbar() {
                       background: "var(--panel2)",
                     }}
                   >
-                    <ThemePill active={theme === "system"} onClick={() => setThemeAndPersist("system")}>
+                    <ThemePill
+                      active={theme === "system"}
+                      onClick={() => setThemeAndPersist("system")}
+                    >
                       System
                     </ThemePill>
-                    <ThemePill active={theme === "light"} onClick={() => setThemeAndPersist("light")}>
+                    <ThemePill
+                      active={theme === "light"}
+                      onClick={() => setThemeAndPersist("light")}
+                    >
                       Light
                     </ThemePill>
-                    <ThemePill active={theme === "dark"} onClick={() => setThemeAndPersist("dark")}>
+                    <ThemePill
+                      active={theme === "dark"}
+                      onClick={() => setThemeAndPersist("dark")}
+                    >
                       Dark
                     </ThemePill>
                   </div>

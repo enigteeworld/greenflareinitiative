@@ -78,10 +78,8 @@ function applyTheme(mode: ThemeMode) {
 
 function explorerTxUrl(tx?: string | null, network?: string | null) {
   if (!tx) return null;
-  // Default to coston2 for MVP
   const n = (network || "coston2").toLowerCase();
   if (n === "coston2") return `https://coston2-explorer.flare.network/tx/${tx}`;
-  // fallback (still shows something reasonable)
   return `https://coston2-explorer.flare.network/tx/${tx}`;
 }
 
@@ -89,7 +87,6 @@ export default function HomePage() {
   const [theme, setTheme] = useState<ThemeMode>("system");
   const [loading, setLoading] = useState(true);
 
-  // ✅ stats logic you confirmed works
   const [stats, setStats] = useState({
     total: 0,
     approved: 0,
@@ -141,7 +138,6 @@ export default function HomePage() {
     }
 
     async function loadRecent() {
-      // IMPORTANT: include chain_tx + chain_network for on-chain verification links
       const { data, error } = await supabase
         .from("submissions")
         .select("id, action_type, location_cell, created_at, chain_tx, chain_network")
@@ -152,8 +148,6 @@ export default function HomePage() {
       if (!mounted) return;
 
       if (error) {
-        // If you haven’t added chain_tx columns yet, this will error.
-        // In that case, fall back to selecting without those fields.
         const fallback = await supabase
           .from("submissions")
           .select("id, action_type, location_cell, created_at")
@@ -276,7 +270,6 @@ export default function HomePage() {
                   Submit an Impact Action
                 </Link>
 
-                {/* ✅ Verify on-chain button */}
                 <Link
                   href="/verify"
                   className="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition"
@@ -287,6 +280,19 @@ export default function HomePage() {
                   }}
                 >
                   Verify On-chain
+                </Link>
+
+                {/* ✅ NEW: Leaderboard button (premium third CTA) */}
+                <Link
+                  href="/leaderboard"
+                  className="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition"
+                  style={{
+                    border: `1px solid rgba(16,185,129,0.28)`,
+                    background: "var(--bg2)",
+                    color: "var(--text)",
+                  }}
+                >
+                  🏆 Leaderboard
                 </Link>
               </div>
 
@@ -387,6 +393,54 @@ export default function HomePage() {
                   no admin access needed.
                 </p>
               </div>
+
+              {/* ✅ NEW: Leaderboard card (premium, CTA) */}
+              <div className="mt-4">
+                <div
+                  className="rounded-2xl p-5"
+                  style={{
+                    border: "1px solid rgba(16,185,129,0.22)",
+                    background:
+                      "linear-gradient(135deg, rgba(16,185,129,0.16), rgba(56,189,248,0.10))",
+                    boxShadow: "var(--shadow)",
+                  }}
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-sm font-semibold">🏆 Points Leaderboard</div>
+                      <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
+                        See top contributors by verified impact. Testnet points help validate the
+                        reward model before sponsor-backed rewards go live.
+                      </p>
+                      <div className="mt-2 text-xs" style={{ color: "var(--muted2)" }}>
+                        Rewards are “coming soon” — points on testnet have no monetary value.
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Link
+                        href="/leaderboard"
+                        className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition"
+                        style={{ background: "var(--accent)", color: "var(--accentText)" }}
+                      >
+                        View Leaderboard
+                      </Link>
+
+                      <Link
+                        href="/submit"
+                        className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition"
+                        style={{
+                          border: "1px solid var(--border)",
+                          background: "var(--panel)",
+                          color: "var(--text)",
+                        }}
+                      >
+                        Earn Points
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </Card>
 
             {/* Recent Activity (with tx links) */}
@@ -406,7 +460,11 @@ export default function HomePage() {
                 ) : recent.length === 0 ? (
                   <div
                     className="rounded-xl p-4 text-sm"
-                    style={{ border: `1px solid var(--border)`, background: "var(--panel)", color: "var(--muted)" }}
+                    style={{
+                      border: `1px solid var(--border)`,
+                      background: "var(--panel)",
+                      color: "var(--muted)",
+                    }}
                   >
                     No verified actions yet. Be the first to submit an impact action.
                   </div>
@@ -431,7 +489,6 @@ export default function HomePage() {
                           {r.location_cell || "Unknown location"}
                         </div>
 
-                        {/* ✅ Tx link */}
                         <div className="mt-3 flex items-center justify-between gap-3">
                           <div className="text-[11px]" style={{ color: "var(--muted2)" }}>
                             On-chain:
@@ -474,16 +531,38 @@ export default function HomePage() {
                   </p>
 
                   <div className="mt-4 grid gap-3">
-                    <MilestoneLine title="Points Target" now={stats.points} target={5000} pct={milestones.pointsPct} />
-                    <MilestoneLine title="Verified Actions Target" now={stats.approved} target={150} pct={milestones.actionsPct} />
+                    <MilestoneLine
+                      title="Points Target"
+                      now={stats.points}
+                      target={5000}
+                      pct={milestones.pointsPct}
+                    />
+                    <MilestoneLine
+                      title="Verified Actions Target"
+                      now={stats.approved}
+                      target={150}
+                      pct={milestones.actionsPct}
+                    />
                   </div>
                 </div>
 
                 <div className="md:col-span-7">
                   <div className="grid gap-3 md:grid-cols-3">
-                    <PhaseCard title="Phase 1 — MVP" bullets={["Manual verification", "Proof uploads", "Basic points + tracking"]} badge="Live" />
-                    <PhaseCard title="Phase 2 — Community Verify" bullets={["Multi-validator checks", "Dispute flow", "Reputation scoring"]} badge="Next" />
-                    <PhaseCard title="Phase 3 — Scale + Partners" bullets={["Sponsor dashboards", "On-chain rewards pools", "Oracle-assisted verification"]} badge="Roadmap" />
+                    <PhaseCard
+                      title="Phase 1 — MVP"
+                      bullets={["Manual verification", "Proof uploads", "Basic points + tracking"]}
+                      badge="Live"
+                    />
+                    <PhaseCard
+                      title="Phase 2 — Community Verify"
+                      bullets={["Multi-validator checks", "Dispute flow", "Reputation scoring"]}
+                      badge="Next"
+                    />
+                    <PhaseCard
+                      title="Phase 3 — Scale + Partners"
+                      bullets={["Sponsor dashboards", "On-chain rewards pools", "Oracle-assisted verification"]}
+                      badge="Roadmap"
+                    />
                   </div>
                 </div>
               </div>
@@ -579,7 +658,10 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function Step({ n, title, desc }: { n: string; title: string; desc: string }) {
   return (
-    <div className="flex gap-3 rounded-xl p-4" style={{ border: "1px solid var(--border)", background: "var(--panel2)" }}>
+    <div
+      className="flex gap-3 rounded-xl p-4"
+      style={{ border: "1px solid var(--border)", background: "var(--panel2)" }}
+    >
       <div className="w-10 shrink-0">
         <div
           className="grid h-9 w-9 place-items-center rounded-xl text-xs font-semibold"
@@ -669,7 +751,11 @@ function PhaseCard({
         <div className="text-sm font-semibold">{title}</div>
         <span
           className="rounded-full px-2 py-0.5 text-[11px]"
-          style={{ border: "1px solid var(--border)", background: "rgba(255,255,255,0.06)", color: "var(--muted)" }}
+          style={{
+            border: "1px solid var(--border)",
+            background: "rgba(255,255,255,0.06)",
+            color: "var(--muted)",
+          }}
         >
           {badge}
         </span>
