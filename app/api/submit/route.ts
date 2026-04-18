@@ -10,10 +10,31 @@ export async function POST(req: Request) {
     const description = String(body.description || "").trim();
     const proof_url = String(body.proof_url || "").trim();
     const location_cell = String(body.location_cell || "").trim();
+    const bin_code = body.bin_code ? String(body.bin_code).trim() : null;
+    const submission_mode = body.submission_mode
+      ? String(body.submission_mode).trim()
+      : "direct";
 
-    if (!user_address) return NextResponse.json({ error: "Missing user_address" }, { status: 400 });
-    if (!action_type) return NextResponse.json({ error: "Missing action_type" }, { status: 400 });
-    if (!proof_url) return NextResponse.json({ error: "Missing proof_url" }, { status: 400 });
+    if (!user_address) {
+      return NextResponse.json(
+        { error: "Missing participant identifier" },
+        { status: 400 }
+      );
+    }
+
+    if (!action_type) {
+      return NextResponse.json(
+        { error: "Missing action_type" },
+        { status: 400 }
+      );
+    }
+
+    if (!proof_url) {
+      return NextResponse.json(
+        { error: "Missing proof_url" },
+        { status: 400 }
+      );
+    }
 
     const sb = supabaseServer();
 
@@ -23,14 +44,20 @@ export async function POST(req: Request) {
       description,
       proof_url,
       location_cell,
+      bin_code,
+      submission_mode,
       status: "pending",
     });
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: e.message || "Server error" },
+      { status: 500 }
+    );
   }
 }
-

@@ -64,7 +64,7 @@ function ThemePill({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className="px-3 py-1.5 text-xs font-semibold rounded-xl transition"
+      className="rounded-xl px-3 py-1.5 text-xs font-semibold transition"
       style={{
         background: active ? "var(--bg2)" : "transparent",
         border: active
@@ -85,6 +85,7 @@ export default function Navbar() {
   useEffect(() => {
     const saved =
       (localStorage.getItem("gf_theme") as ThemeMode | null) ?? "system";
+
     setTheme(saved);
     applyTheme(saved);
 
@@ -94,6 +95,7 @@ export default function Navbar() {
         (localStorage.getItem("gf_theme") as ThemeMode | null) ?? "system";
       if (current === "system") applyTheme("system");
     };
+
     mq?.addEventListener?.("change", onChange);
 
     return () => {
@@ -107,6 +109,9 @@ export default function Navbar() {
     applyTheme(mode);
   }
 
+  const mobileResolvedTheme =
+    theme === "system" ? getSystemTheme() : theme;
+
   return (
     <header
       className="sticky top-0 z-50 backdrop-blur"
@@ -115,9 +120,8 @@ export default function Navbar() {
         borderBottom: "1px solid var(--border)",
       }}
     >
-      <div className="mx-auto max-w-6xl px-4">
+      <div className="mx-auto max-w-7xl px-4">
         <div className="flex h-16 items-center justify-between gap-3">
-          {/* Brand */}
           <Link
             href="/"
             className="flex items-center gap-2"
@@ -133,43 +137,34 @@ export default function Navbar() {
             >
               <span style={{ color: "var(--accent)" }}>🌱</span>
             </div>
+
             <div className="leading-tight">
-              <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+              <div
+                className="text-sm font-semibold"
+                style={{ color: "var(--text)" }}
+              >
                 GreenFlare
               </div>
-              <div className="text-[11px]" style={{ color: "var(--muted2)" }}>
-                Flare-powered impact
+              <div
+                className="text-[11px]"
+                style={{ color: "var(--muted2)" }}
+              >
+                Verified real-world impact
               </div>
             </div>
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-2">
-            {/* ✅ NEW */}
+          <nav className="hidden items-center gap-2 md:flex">
             <NavLink href="/">Home</NavLink>
             <NavLink href="/leaderboard">🏆 Leaderboard</NavLink>
-
             <NavLink href="/submit">Submit</NavLink>
-            <NavLink href="/admin">Admin</NavLink>
 
-            <a
-              href="https://flare.network/"
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-xl px-3 py-2 text-sm font-semibold transition"
-              style={{
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-                color: "var(--text)",
-              }}
-            >
-              Flare
-            </a>
-
-            {/* Theme */}
             <div
               className="ml-2 inline-flex items-center gap-1 rounded-2xl border p-1"
-              style={{ borderColor: "var(--border)", background: "var(--panel)" }}
+              style={{
+                borderColor: "var(--border)",
+                background: "var(--panel)",
+              }}
             >
               <ThemePill
                 active={theme === "system"}
@@ -192,11 +187,14 @@ export default function Navbar() {
             </div>
           </nav>
 
-          {/* Mobile controls */}
-          <div className="md:hidden flex items-center gap-2">
+          <div className="flex items-center gap-2 md:hidden">
             <button
               type="button"
-              onClick={() => setThemeAndPersist(theme === "dark" ? "light" : "dark")}
+              onClick={() =>
+                setThemeAndPersist(
+                  mobileResolvedTheme === "dark" ? "light" : "dark"
+                )
+              }
               className="rounded-xl px-3 py-2 text-sm font-semibold transition"
               style={{
                 border: "1px solid var(--border)",
@@ -205,7 +203,7 @@ export default function Navbar() {
               }}
               aria-label="Toggle theme"
             >
-              {getSystemTheme() === "dark" ? "☀️" : "🌙"}
+              {mobileResolvedTheme === "dark" ? "☀️" : "🌙"}
             </button>
 
             <button
@@ -225,9 +223,8 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile dropdown */}
         {open ? (
-          <div id="mobile-nav" className="md:hidden pb-4">
+          <div id="mobile-nav" className="pb-4 md:hidden">
             <div
               className="rounded-2xl p-3"
               style={{
@@ -236,37 +233,29 @@ export default function Navbar() {
               }}
             >
               <div className="grid gap-2">
-                {/* ✅ NEW */}
-                <NavLink href="/" onClick={() => setOpen(false)}>Home</NavLink>
-                <NavLink href="/leaderboard" onClick={() => setOpen(false)}>
+                <NavLink href="/" onClick={() => setOpen(false)}>
+                  Home
+                </NavLink>
+
+                <NavLink
+                  href="/leaderboard"
+                  onClick={() => setOpen(false)}
+                >
                   🏆 Leaderboard
                 </NavLink>
 
                 <NavLink href="/submit" onClick={() => setOpen(false)}>
                   Submit
                 </NavLink>
-                <NavLink href="/admin" onClick={() => setOpen(false)}>
-                  Admin
-                </NavLink>
-
-                <a
-                  href="https://flare.network/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="rounded-xl px-3 py-2 text-sm font-semibold transition"
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--panel2)",
-                    color: "var(--text)",
-                  }}
-                >
-                  Flare Network
-                </a>
 
                 <div className="mt-2">
-                  <div className="text-xs font-semibold" style={{ color: "var(--muted2)" }}>
+                  <div
+                    className="text-xs font-semibold"
+                    style={{ color: "var(--muted2)" }}
+                  >
                     Theme
                   </div>
+
                   <div
                     className="mt-2 inline-flex items-center gap-1 rounded-2xl border p-1"
                     style={{
@@ -327,4 +316,3 @@ function NavLink({
     </Link>
   );
 }
-

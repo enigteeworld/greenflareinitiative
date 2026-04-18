@@ -78,9 +78,11 @@ function applyTheme(mode: ThemeMode) {
 
 function explorerTxUrl(tx?: string | null, network?: string | null) {
   if (!tx) return null;
-  const n = (network || "coston2").toLowerCase();
+  const n = (network || "").toLowerCase();
+
   if (n === "coston2") return `https://coston2-explorer.flare.network/tx/${tx}`;
-  return `https://coston2-explorer.flare.network/tx/${tx}`;
+
+  return null;
 }
 
 export default function HomePage() {
@@ -131,8 +133,8 @@ export default function HomePage() {
       }
 
       const total = data.length;
-      const approved = data.filter((d) => d.status === "approved").length;
-      const points = data.reduce((sum, d) => sum + (d.points || 0), 0);
+      const approved = data.filter((d: { status: string; }) => d.status === "approved").length;
+      const points = data.reduce((sum: any, d: { points: any; }) => sum + (d.points || 0), 0);
 
       setStats({ total, approved, points });
     }
@@ -240,9 +242,8 @@ export default function HomePage() {
                 boxShadow: "0 0 18px rgba(52,211,153,0.45)",
               }}
             />
-            Building in public • Nigeria-first • Flare-powered
+            Building in public • Nigeria-first • verification-first
           </div>
-
         </div>
 
         {/* HERO */}
@@ -257,8 +258,8 @@ export default function HomePage() {
 
               <p className="mt-4 leading-relaxed max-w-xl" style={{ color: "var(--muted)" }}>
                 GreenFlare is a community-led initiative promoting tree planting,
-                recycling, and cleanups — with transparent impact tracking on the
-                Flare Network. Sponsors see real proof. Communities earn points.
+                recycling, and cleanups — with transparent, verifiable impact
+                tracking. Sponsors see real proof. Communities earn points.
               </p>
 
               <div className="mt-6 flex flex-col sm:flex-row gap-3">
@@ -279,10 +280,9 @@ export default function HomePage() {
                     color: "var(--text)",
                   }}
                 >
-                  Verify On-chain
+                  Review Impact
                 </Link>
 
-                {/* ✅ NEW: Leaderboard button (premium third CTA) */}
                 <Link
                   href="/leaderboard"
                   className="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition"
@@ -303,7 +303,7 @@ export default function HomePage() {
               </div>
 
               <div className="mt-3 text-xs" style={{ color: "var(--muted2)" }}>
-                MVP running on Flare Coston2 testnet.
+                Pilot-ready environmental action tracking and verification
               </div>
             </div>
 
@@ -325,14 +325,18 @@ export default function HomePage() {
                       color: "var(--text)",
                     }}
                   >
-                    On-chain ready
+                    Pilot-ready
                   </div>
                 </div>
 
                 <div className="mt-4 grid gap-3">
                   <Step n="01" title="Do an action" desc="Plant a tree, recycle, or clean your community." />
                   <Step n="02" title="Submit proof" desc="Upload proof + location notes through the GreenFlare web app." />
-                  <Step n="03" title="Verify + reward" desc="Verified actions earn points — recorded on Flare for transparent accountability." />
+                  <Step
+                    n="03"
+                    title="Review + reward"
+                    desc="Verified actions earn points and become trusted impact records for communities, partners, and sponsors."
+                  />
                 </div>
               </Panel>
 
@@ -389,12 +393,11 @@ export default function HomePage() {
               >
                 <div className="text-sm font-semibold">Transparent accountability</div>
                 <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Approved actions write to Flare (Coston2) so anyone can verify via explorer links —
-                  no admin access needed.
+                  Approved actions become trusted records that communities, partners,
+                  and sponsors can review with confidence.
                 </p>
               </div>
 
-              {/* ✅ NEW: Leaderboard card (premium, CTA) */}
               <div className="mt-4">
                 <div
                   className="rounded-2xl p-5"
@@ -409,11 +412,11 @@ export default function HomePage() {
                     <div>
                       <div className="text-sm font-semibold">🏆 Points Leaderboard</div>
                       <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                        See top contributors by verified impact. Testnet points help validate the
+                        See top contributors by verified impact. Points help validate the
                         reward model before sponsor-backed rewards go live.
                       </p>
                       <div className="mt-2 text-xs" style={{ color: "var(--muted2)" }}>
-                        Rewards are “coming soon” — points on testnet have no monetary value.
+                        Rewards are “coming soon” — current points have no monetary value.
                       </div>
                     </div>
 
@@ -443,11 +446,11 @@ export default function HomePage() {
               </div>
             </Card>
 
-            {/* Recent Activity (with tx links) */}
+            {/* Recent Activity */}
             <Card className="md:col-span-5">
               <h2 className="text-lg font-semibold">Recent Activity</h2>
               <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                Latest verified submissions (with on-chain proof when available).
+                Latest verified submissions.
               </p>
 
               <div className="mt-4 space-y-3">
@@ -491,7 +494,7 @@ export default function HomePage() {
 
                         <div className="mt-3 flex items-center justify-between gap-3">
                           <div className="text-[11px]" style={{ color: "var(--muted2)" }}>
-                            On-chain:
+                            Proof record:
                           </div>
 
                           {txUrl ? (
@@ -506,11 +509,11 @@ export default function HomePage() {
                                 color: "var(--text)",
                               }}
                             >
-                              View Tx ↗
+                              View record ↗
                             </a>
                           ) : (
                             <span className="text-[11px]" style={{ color: "var(--muted2)" }}>
-                              (tx link not saved yet)
+                              Verified in-app
                             </span>
                           )}
                         </div>
@@ -560,7 +563,7 @@ export default function HomePage() {
                     />
                     <PhaseCard
                       title="Phase 3 — Scale + Partners"
-                      bullets={["Sponsor dashboards", "On-chain rewards pools", "Oracle-assisted verification"]}
+                      bullets={["Sponsor dashboards", "Rewards pools", "Stronger verification infrastructure"]}
                       badge="Roadmap"
                     />
                   </div>
@@ -771,4 +774,3 @@ function PhaseCard({
     </div>
   );
 }
-

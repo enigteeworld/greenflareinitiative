@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type ActionType = "TREE" | "RECYCLE" | "CLEANUP";
@@ -12,24 +13,78 @@ type FeedItem = {
   location_cell: string | null;
   created_at: string;
   points: number | null;
+  bin_code?: string | null;
 };
+
+type BinOption = {
+  code: string;
+  label: string;
+  hall: string;
+  category: string;
+  defaultAction: ActionType;
+  defaultLocation: string;
+};
+
+const HALL4_BINS: BinOption[] = [
+  {
+    code: "GF-UNIBEN-H4-PL-001",
+    label: "Hall 4 • Plastic Bin",
+    hall: "Hall 4",
+    category: "Plastic",
+    defaultAction: "RECYCLE",
+    defaultLocation: "UNIBEN • Hall 4",
+  },
+  {
+    code: "GF-UNIBEN-H4-SA-001",
+    label: "Hall 4 • Sachet Bin",
+    hall: "Hall 4",
+    category: "Sachet",
+    defaultAction: "RECYCLE",
+    defaultLocation: "UNIBEN • Hall 4",
+  },
+  {
+    code: "GF-UNIBEN-H4-GW-001",
+    label: "Hall 4 • General Waste Bin",
+    hall: "Hall 4",
+    category: "General Waste",
+    defaultAction: "CLEANUP",
+    defaultLocation: "UNIBEN • Hall 4",
+  },
+];
 
 function actionLabel(actionType?: string | null) {
   switch (actionType) {
     case "TREE":
       return "🌳 Tree Planting";
     case "RECYCLE":
-      return "♻️ Recycling";
+      return "♻️ Recycling / Sorted Disposal";
     case "CLEANUP":
-      return "🧹 Community Cleanup";
+      return "🧹 Community Cleanup / Waste Collection";
     default:
       return "🌱 Impact Action";
   }
 }
 
+function actionHelp(actionType: ActionType) {
+  switch (actionType) {
+    case "TREE":
+      return "Use this for planting trees or related restoration activity.";
+    case "RECYCLE":
+      return "Use this for plastic, sachet, or sorted waste disposal — especially with designated bins.";
+    case "CLEANUP":
+      return "Use this for clearing waste from an area, sweeping, bagging, or general cleanup activity.";
+    default:
+      return "";
+  }
+}
+
 export default function SubmitPage() {
-  const [wallet, setWallet] = useState("");
-  const [actionType, setActionType] = useState<ActionType>("TREE");
+  const searchParams = useSearchParams();
+  const binFromQuery = searchParams.get("bin") || "";
+
+  const [participantId, setParticipantId] = useState("");
+  const [actionType, setActionType] = useState<ActionType>("RECYCLE");
+  const [binCode, setBinCode] = useState("");
   const [locationCell, setLocationCell] = useState("");
   const [description, setDescription] = useState("");
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -40,14 +95,44 @@ export default function SubmitPage() {
   const [recent, setRecent] = useState<FeedItem[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
 
-  const walletOk = useMemo(() => /^0x[a-fA-F0-9]{40}$/.test(wallet.trim()), [wallet]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const selectedBin = useMemo(
+    () => HALL4_BINS.find((b) => b.code === binCode) || null,
+    [binCode]
+  );
+
+  const participantOk = useMemo(
+    () => participantId.trim().length >= 3,
+    [participantId]
+  );
+
+  useEffect(() => {
+    if (!binFromQuery) return;
+
+    const matched = HALL4_BINS.find((b) => b.code === binFromQuery);
+    if (matched) {
+      setBinCode(matched.code);
+      setActionType(matched.defaultAction);
+      setLocationCell((prev) => prev || matched.defaultLocation);
+    }
+  }, [binFromQuery]);
+
+  useEffect(() => {
+    if (!selectedBin) return;
+
+    if (!locationCell.trim()) {
+      setLocationCell(selectedBin.defaultLocation);
+    }
+  }, [selectedBin, locationCell]);
 
   useEffect(() => {
     async function loadRecent() {
       setLoadingRecent(true);
+
       const { data } = await supabase
         .from("submissions")
-        .select("id, action_type, location_cell, created_at, points")
+        .select("id, action_type, location_cell, created_at, points, bin_code")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
         .limit(6);
@@ -63,22 +148,23 @@ export default function SubmitPage() {
     e.preventDefault();
     setMsg(null);
 
-    if (!walletOk) {
-      setMsg("❌ Please enter a valid wallet address (0x...)");
+    if (!participantOk) {
+      setMsg("❌ Please enter a valid participant ID.");
       return;
     }
 
     if (!proofFile) {
-      setMsg("❌ Please upload a proof image for the MVP.");
+      setMsg("❌ Please upload a proof image.");
       return;
     }
 
     try {
       setSubmitting(true);
 
-      // 1) upload proof to supabase storage
       const ext = proofFile.name.split(".").pop() || "jpg";
-      const filePath = `proofs/${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
+      const filePath = `proofs/${Date.now()}_${Math.random()
+        .toString(16)
+        .slice(2)}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from("proofs")
@@ -89,16 +175,17 @@ export default function SubmitPage() {
       const { data: pub } = supabase.storage.from("proofs").getPublicUrl(filePath);
       const proofUrl = pub?.publicUrl;
 
-      // 2) send to API
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          user_address: wallet.trim(),
+          user_address: participantId.trim(),
           action_type: actionType,
           location_cell: locationCell.trim(),
           description: description.trim(),
           proof_url: proofUrl,
+          bin_code: binCode || null,
+          submission_mode: binCode ? "bin_drop" : "direct",
         }),
       });
 
@@ -106,11 +193,15 @@ export default function SubmitPage() {
       if (!res.ok) throw new Error(j?.error || "Submission failed");
 
       setMsg("✅ Submitted! Your action is pending verification.");
-      setWallet("");
-      setActionType("TREE");
-      setLocationCell("");
+      setParticipantId("");
+      setActionType(binCode ? actionType : "RECYCLE");
+      setLocationCell(selectedBin?.defaultLocation || "");
       setDescription("");
       setProofFile(null);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     } catch (err: any) {
       setMsg(`❌ ${err?.message || "Something went wrong"}`);
     } finally {
@@ -120,9 +211,8 @@ export default function SubmitPage() {
 
   return (
     <div style={{ background: "var(--bg)", color: "var(--text)" }}>
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        {/* Header */}
-        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+      <div className="mx-auto max-w-7xl px-4 py-8 md:py-10">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <div
               className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
@@ -139,14 +229,20 @@ export default function SubmitPage() {
                   boxShadow: "0 0 18px rgba(52,211,153,0.45)",
                 }}
               />
-              Submit impact proof • Nigeria • Flare Coston2
+              Submit impact proof • UNIBEN pilot • Hall 4 ready
             </div>
 
-            <h1 className="mt-3 text-3xl md:text-4xl font-semibold tracking-tight">
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
               Submit an Impact Action
             </h1>
-            <p className="mt-2 text-sm md:text-base max-w-2xl" style={{ color: "var(--muted)" }}>
-              Plant a tree, recycle, or clean up your community. Upload proof — we verify and record approved impact on-chain.
+
+            <p
+              className="mt-2 max-w-3xl text-sm md:text-base"
+              style={{ color: "var(--muted)" }}
+            >
+              Submit a recycling, cleanup, or tree planting action. Designated
+              Hall 4 bins are optional, but they will qualify for stronger
+              verification and higher reward weighting.
             </p>
           </div>
 
@@ -162,8 +258,9 @@ export default function SubmitPage() {
             >
               ← Home
             </Link>
+
             <Link
-              href="/verify"
+              href="/leaderboard"
               className="rounded-xl px-4 py-2 text-sm font-semibold transition"
               style={{
                 border: "1px solid var(--border)",
@@ -171,15 +268,14 @@ export default function SubmitPage() {
                 color: "var(--text)",
               }}
             >
-              Verify On-chain
+              Leaderboard
             </Link>
           </div>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-12">
-          {/* Form */}
+        <div className="mt-8 grid gap-4 lg:grid-cols-12">
           <div
-            className="md:col-span-7 rounded-2xl p-6"
+            className="rounded-2xl p-5 md:p-6 lg:col-span-8"
             style={{
               border: "1px solid var(--border)",
               background: "var(--panel)",
@@ -187,11 +283,11 @@ export default function SubmitPage() {
             }}
           >
             <form onSubmit={onSubmit} className="space-y-4">
-              <Field label="Wallet Address (test wallet is fine)">
+              <Field label="Participant ID">
                 <input
-                  value={wallet}
-                  onChange={(e) => setWallet(e.target.value)}
-                  placeholder="0x..."
+                  value={participantId}
+                  onChange={(e) => setParticipantId(e.target.value)}
+                  placeholder="Your name, nickname, phone, or email"
                   className="w-full rounded-xl px-4 py-3 text-sm outline-none"
                   style={{
                     border: "1px solid var(--border)",
@@ -199,12 +295,58 @@ export default function SubmitPage() {
                     color: "var(--text)",
                   }}
                 />
-                <div className="mt-2 text-xs" style={{ color: wallet.length ? (walletOk ? "var(--muted)" : "#ef4444") : "var(--muted2)" }}>
-                  {wallet.length ? (walletOk ? "Looks good ✅" : "Not a valid address ❌") : "Tip: you can paste any test wallet address for MVP."}
+                <div
+                  className="mt-2 text-xs"
+                  style={{
+                    color: participantId.length
+                      ? participantOk
+                        ? "var(--muted)"
+                        : "#ef4444"
+                      : "var(--muted2)",
+                  }}
+                >
+                  {participantId.length
+                    ? participantOk
+                      ? "Looks good ✅"
+                      : "Please enter at least 3 characters ❌"
+                    : "Temporary MVP identity until full account system goes live."}
                 </div>
               </Field>
 
               <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Designated Bin (optional)">
+                  <select
+                    value={binCode}
+                    onChange={(e) => {
+                      const nextCode = e.target.value;
+                      setBinCode(nextCode);
+
+                      const matched = HALL4_BINS.find((b) => b.code === nextCode);
+                      if (matched) {
+                        setActionType(matched.defaultAction);
+                        setLocationCell(matched.defaultLocation);
+                      }
+                    }}
+                    className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                    style={{
+                      border: "1px solid var(--border)",
+                      background: "var(--panel2)",
+                      color: "var(--text)",
+                    }}
+                  >
+                    <option value="">No designated bin</option>
+                    {HALL4_BINS.map((bin) => (
+                      <option key={bin.code} value={bin.code}>
+                        {bin.label}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mt-2 text-xs" style={{ color: "var(--muted2)" }}>
+                    Using a designated bin is optional, but it qualifies for
+                    stronger verification and higher points later.
+                  </div>
+                </Field>
+
                 <Field label="Action Type">
                   <select
                     value={actionType}
@@ -216,18 +358,53 @@ export default function SubmitPage() {
                       color: "var(--text)",
                     }}
                   >
-                    <option value="TREE">🌳 Tree Planting</option>
-                    <option value="RECYCLE">♻️ Recycling</option>
-                    <option value="CLEANUP">🧹 Community Cleanup</option>
+                    <option value="RECYCLE">♻️ Recycling / Sorted Disposal</option>
+                    <option value="CLEANUP">🧹 Community Cleanup / Waste Collection</option>
+                    <option value="TREE">🌳 Tree Planting / Restoration</option>
                   </select>
+                  <div className="mt-2 text-xs" style={{ color: "var(--muted2)" }}>
+                    {actionHelp(actionType)}
+                  </div>
                 </Field>
+              </div>
 
+              {selectedBin ? (
+                <div
+                  className="rounded-xl p-4"
+                  style={{
+                    border: "1px solid rgba(16,185,129,0.24)",
+                    background: "var(--bg2)",
+                  }}
+                >
+                  <div className="text-sm font-semibold">
+                    Selected Bin: {selectedBin.label}
+                  </div>
+                  <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+                    Bin Code: {selectedBin.code} • Category: {selectedBin.category}
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <Field label="Location Cell (optional)">
                   <input
                     value={locationCell}
                     onChange={(e) => setLocationCell(e.target.value)}
-                    placeholder="e.g. Lagos Mainland • Ikeja"
+                    placeholder="e.g. UNIBEN • Hall 4"
                     className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                    style={{
+                      border: "1px solid var(--border)",
+                      background: "var(--panel2)",
+                      color: "var(--text)",
+                    }}
+                  />
+                </Field>
+
+                <Field label="Submission Mode">
+                  <input
+                    value={binCode ? "Designated Bin Drop" : "Direct Submission"}
+                    disabled
+                    className="w-full rounded-xl px-4 py-3 text-sm outline-none opacity-80"
                     style={{
                       border: "1px solid var(--border)",
                       background: "var(--panel2)",
@@ -241,8 +418,8 @@ export default function SubmitPage() {
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What did you do? What was collected/cleared/planted?"
-                  className="w-full rounded-xl px-4 py-3 text-sm outline-none min-h-[110px]"
+                  placeholder="What did you do? What was collected, cleared, or planted?"
+                  className="min-h-[120px] w-full rounded-xl px-4 py-3 text-sm outline-none"
                   style={{
                     border: "1px solid var(--border)",
                     background: "var(--panel2)",
@@ -252,19 +429,42 @@ export default function SubmitPage() {
               </Field>
 
               <Field label="Upload Proof (image)">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setProofFile(e.target.files?.[0] || null)}
-                  className="block w-full text-sm"
-                  style={{ color: "var(--muted)" }}
-                />
-                <div className="mt-2 text-xs" style={{ color: "var(--muted2)" }}>
-                  For MVP: one clear image is enough. Stronger verification is on the roadmap.
+                <div className="space-y-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                    className="hidden"
+                    id="proof-upload"
+                  />
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <label
+                      htmlFor="proof-upload"
+                      className="inline-flex cursor-pointer items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold transition"
+                      style={{
+                        border: "1px solid var(--border)",
+                        background: "var(--panel2)",
+                        color: "var(--text)",
+                      }}
+                    >
+                      Choose Image
+                    </label>
+
+                    <div className="text-sm" style={{ color: "var(--muted)" }}>
+                      {proofFile ? proofFile.name : "No file selected"}
+                    </div>
+                  </div>
+
+                  <div className="text-xs" style={{ color: "var(--muted2)" }}>
+                    For the Hall 4 pilot, try to include the bin in the photo
+                    where possible.
+                  </div>
                 </div>
               </Field>
 
-              <div className="pt-2 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <button
                   type="submit"
                   disabled={submitting}
@@ -279,7 +479,9 @@ export default function SubmitPage() {
 
                 <div
                   className="text-sm"
-                  style={{ color: msg?.startsWith("❌") ? "#ef4444" : "var(--muted)" }}
+                  style={{
+                    color: msg?.startsWith("❌") ? "#ef4444" : "var(--muted)",
+                  }}
                 >
                   {msg}
                 </div>
@@ -287,15 +489,35 @@ export default function SubmitPage() {
             </form>
           </div>
 
-          {/* Right Column: Guidance + Activity */}
-          <div className="md:col-span-5 grid gap-4">
+          <div className="grid gap-4 lg:col-span-4">
             <Card title="Submission Checklist">
               <ul className="mt-3 space-y-2 text-sm" style={{ color: "var(--muted)" }}>
                 <li>• Choose the correct action type.</li>
+                <li>• Select the correct Hall 4 bin if used.</li>
                 <li>• Upload one clear proof image.</li>
                 <li>• Add location notes if possible.</li>
                 <li>• Keep description short and honest.</li>
               </ul>
+            </Card>
+
+            <Card title="Hall 4 Pilot Bins">
+              <div className="mt-3 space-y-3">
+                {HALL4_BINS.map((bin) => (
+                  <div
+                    key={bin.code}
+                    className="rounded-xl p-4"
+                    style={{
+                      border: "1px solid var(--border)",
+                      background: "var(--panel2)",
+                    }}
+                  >
+                    <div className="text-sm font-semibold">{bin.label}</div>
+                    <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
+                      {bin.category} • {bin.code}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
 
             <Card title="Recent Verified Activity">
@@ -321,14 +543,24 @@ export default function SubmitPage() {
                       }}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-semibold">{actionLabel(r.action_type)}</div>
+                        <div className="text-sm font-semibold">
+                          {actionLabel(r.action_type)}
+                        </div>
                         <div className="text-xs" style={{ color: "var(--muted2)" }}>
                           {new Date(r.created_at).toLocaleDateString()}
                         </div>
                       </div>
+
                       <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
                         {r.location_cell || "Unknown location"}
                       </div>
+
+                      {r.bin_code ? (
+                        <div className="mt-2 text-xs" style={{ color: "var(--muted2)" }}>
+                          Bin: {r.bin_code}
+                        </div>
+                      ) : null}
+
                       <div className="mt-2 text-xs" style={{ color: "var(--muted2)" }}>
                         Points: {r.points ?? 0}
                       </div>
@@ -344,7 +576,13 @@ export default function SubmitPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
@@ -355,7 +593,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div
       className="rounded-2xl p-6"
@@ -380,9 +624,14 @@ function SkeletonRow() {
         background: "var(--panel2)",
       }}
     >
-      <div className="h-4 w-2/3 rounded" style={{ background: "rgba(255,255,255,0.12)" }} />
-      <div className="mt-2 h-3 w-full rounded" style={{ background: "rgba(255,255,255,0.10)" }} />
+      <div
+        className="h-4 w-2/3 rounded"
+        style={{ background: "rgba(255,255,255,0.12)" }}
+      />
+      <div
+        className="mt-2 h-3 w-full rounded"
+        style={{ background: "rgba(255,255,255,0.10)" }}
+      />
     </div>
   );
 }
-
