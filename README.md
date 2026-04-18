@@ -1,182 +1,188 @@
-GreenFlare Initiative
+🌱 GreenFlare Initiative
 
-GreenFlare is a real-world impact tracking and verification platform that enables users to submit environmental actions (recycling, cleanup, tree planting) and builds a structured, verifiable record of sustainability activity.
+GreenFlare begins with a simple observation:
 
-It combines:
+People do meaningful environmental work every day —
+they clean spaces, sort waste, recycle materials, plant trees —
+and yet, almost all of it disappears.
 
-📸 Proof-based submissions
-🧠 Trust & verification logic (Supabase-backed)
-🏫 Location + bin-based tracking (UNIBEN pilot)
-🏆 Future-ready reward + leaderboard system
-🚀 Overview
+No record.
+No proof.
+No continuity.
 
-GreenFlare turns physical environmental actions into digital records.
+The action happens… and then it’s gone.
 
-Users can:
+What GreenFlare Is
 
-Submit actions with image proof
-Select action types (Recycle, Cleanup, Tree Planting)
-Tag submissions to designated bins (pilot infrastructure)
-Build a verifiable impact history
+GreenFlare is an attempt to make environmental action visible, structured, and verifiable.
 
-This project is the frontend + product layer for a broader impact system.
+It transforms real-world activity into something that can be:
 
-🧱 Tech Stack
-Frontend: Next.js (App Router)
-Language: TypeScript
-Backend: Supabase (Auth, DB, Storage)
-Styling: Tailwind + CSS variables
-Deployment: Vercel-ready
-🧩 Core Features
-📝 1. Impact Submission
-Upload proof images
-Select action type
-Optional bin-linked submissions
-Location tagging
-API-powered submission flow
-🏫 2. Bin-Based Tracking (Pilot System)
-Predefined bins (e.g. Hall 4 UNIBEN)
-Each bin has:
-Code
-Category (Plastic, Sachet, General Waste)
-Default action + location
+recorded
+understood
+trusted
+and eventually rewarded
 
-➡️ Enables structured, verifiable recycling flows
+At its core, it is not just a product —
+it is a system of record for environmental impact.
 
-🔐 3. Authentication System
-Email/password auth (Supabase)
-Login / Signup flow
-Redirect-based navigation (?next= support)
-Session detection
-👤 4. Onboarding System
-First-time profile creation
-Stores:
-Full name
-Display name
-Campus / hostel
-Determines:
-Whether user is fully onboarded
-Where to route after login
-📊 5. Verified Activity Feed
-Displays recent approved submissions
-Includes:
-Action type
-Location
-Bin (if used)
-Points (future scoring system)
-🏆 6. Leaderboard (in progress)
-Ranking users by impact
-Will integrate with trust + reward system
-📁 Project Structure
-app/
-  ├── submit/           # Impact submission flow
-  ├── auth/             # Login / signup
-  ├── onboarding/       # Profile setup
-  ├── leaderboard/      # Rankings
-  ├── api/submit/       # Submission API route
-  ├── components/       # Shared UI components
+The Problem It Solves
 
-lib/
-  ├── supabaseClient.ts
-  ├── supabaseServer.ts
+Environmental work suffers from three fundamental issues:
 
-public/
-⚙️ Getting Started
-1. Clone repo
-git clone https://github.com/enigteeworld/greenflareinitiative.git
-cd greenflareinitiative
-2. Install dependencies
-npm install
-3. Setup environment variables
+1. Invisibility
 
-Create .env.local:
+Most actions are never seen beyond the moment they happen.
+There is no persistent memory of effort.
 
-NEXT_PUBLIC_SUPABASE_URL=your_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_key
-4. Run dev server
-npm run dev
+2. Lack of Proof
 
-Open:
+Claims of impact are easy to make, but difficult to verify.
+Without proof, systems cannot trust or build on them.
 
-http://localhost:3000
-🧠 Architecture Notes
-🔹 Server + Client Split (Next.js 16)
-Pages use server components
-Interactive logic lives in *Client.tsx files
-Query params handled server-side → passed as props
+3. No Accumulation
 
-This avoids:
+Even consistent contributors cannot build a track record.
+Every action starts from zero again.
 
-useSearchParams() build errors
-🔹 Submission Flow
-User uploads proof
-Image stored in Supabase Storage
-API route /api/submit is called
-Record stored in submissions table
-Status = pending
-Admin / system later verifies
-🔹 Data Model (Simplified)
+What GreenFlare Changes
 
-submissions
+GreenFlare introduces a different model:
 
-id
-user_address
-action_type
-location_cell
-proof_url
-bin_code
-status
-points
+Every action becomes a signal.
 
-profiles
+A cleanup is no longer just done —
+it is submitted, recorded, and stored.
 
-auth_user_id
-full_name
-display_name
-onboarding_completed
-🌍 Vision
+A recycling action is no longer just helpful —
+it becomes data with context and evidence.
 
-GreenFlare is not just a form — it’s building toward:
+A participant is no longer anonymous —
+they begin to build a history of impact over time.
 
-🧾 Verifiable environmental activity records
-🧠 Trust scoring for participants
-💰 Reward systems (tokens / sponsorships)
-🏙️ Smart infrastructure (bins + QR systems)
-🌐 Public impact dashboards
-🧪 Current Status
-✅ Submission flow working
-✅ Supabase integration live
-✅ Auth + onboarding complete
-✅ Bin system integrated (Hall 4 pilot)
-⚠️ Leaderboard partial
-🚧 Rewards + trust scoring upcoming
-🔮 Roadmap
- Admin verification dashboard
- Trust score engine
- QR-based bin scanning
- Tokenized rewards
- Public impact explorer
- Mobile optimization
-🤝 Contributing
+The Core Idea: Verifiable Impact
 
-This is an early-stage project. Contributions are welcome.
+GreenFlare is built on one principle:
 
-# fork → clone → branch → PR
-📄 License
+Impact should be provable.
 
-MIT License
+Users submit actions with proof — typically images —
+which are stored, reviewed, and linked to structured data like:
 
-✨ Author
+location
+action type
+time
+context
 
-Built by @enigteeworld
+Over time, this creates something powerful:
 
-🧭 Final Note
+A verifiable timeline of real-world environmental behavior.
 
-GreenFlare sits at the intersection of:
+Structured Action (Why This Matters)
 
-Climate action 🌱
-Digital identity 🧠
-Real-world verification 📸
-Incentive systems 💰
+Not all environmental actions are equal.
 
-This repo is the first operational layer of that system.
+GreenFlare introduces the concept of structured interaction with real infrastructure —
+for example:
+
+designated recycling bins
+known locations
+predefined categories
+
+This moves the system from:
+
+“someone says they recycled”
+
+to:
+
+“this action happened, here, in a known system, with evidence”
+
+That shift is everything.
+
+What This Can Become
+
+GreenFlare is not just a submission platform.
+It is the beginning of a larger system.
+
+If extended fully, it can enable:
+
+🧠 Trust Layers
+
+Participants build reputations based on consistent, verifiable actions.
+
+🏆 Incentive Systems
+
+Rewards can be tied to actual impact, not assumptions.
+
+🏙️ Environmental Mapping
+
+Communities can be understood through their contribution patterns.
+
+🤝 Coordination at Scale
+
+Organizations, sponsors, and communities can support real work — not just claims.
+
+Why This Matters
+
+Environmental action is one of the few domains where:
+
+effort is high
+impact is real
+but recognition is minimal
+
+GreenFlare proposes a shift:
+
+From:
+
+actions that disappear
+
+To:
+
+actions that accumulate
+
+From:
+
+trust based on assumption
+
+To:
+
+trust built on evidence
+
+From:
+
+isolated effort
+
+To:
+
+coordinated, visible impact
+
+Current State
+
+Right now, GreenFlare exists as an early working system.
+
+It already:
+
+captures submissions
+stores proof
+links actions to structure (like bins and locations)
+begins forming a record of activity
+
+It is still evolving — but the foundation is there.
+
+The Direction
+
+GreenFlare is moving toward a world where:
+
+environmental work is trackable
+contributors have identity and history
+impact can be measured and compared
+systems can reward what is real
+Final Thought
+
+GreenFlare is not trying to convince people to care about the environment.
+
+It assumes they already do.
+
+What it builds is the missing layer:
+
+a system where that care can be seen, trusted, and scaled.
