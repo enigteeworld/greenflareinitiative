@@ -68,7 +68,7 @@ export default function Footer() {
           >
             <span>🇳🇬 Nigeria</span>
             <span style={{ opacity: 0.6 }}>•</span>
-            <span>Pilot-ready MVP</span>
+            <span>Pilot-ready MVP..</span>
           </div>
         </div>
       </div>
