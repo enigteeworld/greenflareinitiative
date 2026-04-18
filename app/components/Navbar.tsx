@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type ThemeMode = "system" | "light" | "dark";
 
@@ -81,6 +82,7 @@ function ThemePill({
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>("system");
+  const [isAuthed, setIsAuthed] = useState(false);
 
   useEffect(() => {
     const saved =
@@ -98,10 +100,32 @@ export default function Navbar() {
 
     mq?.addEventListener?.("change", onChange);
 
+    const loadSession = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      setIsAuthed(!!session?.user);
+    };
+
+    loadSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthed(!!session?.user);
+    });
+
     return () => {
       mq?.removeEventListener?.("change", onChange);
+      subscription.unsubscribe();
     };
   }, []);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setOpen(false);
+  }
 
   function setThemeAndPersist(mode: ThemeMode) {
     setTheme(mode);
@@ -158,6 +182,26 @@ export default function Navbar() {
             <NavLink href="/">Home</NavLink>
             <NavLink href="/leaderboard">🏆 Leaderboard</NavLink>
             <NavLink href="/submit">Submit</NavLink>
+
+            {isAuthed ? (
+              <>
+                <NavLink href="/account">Account</NavLink>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-xl px-3 py-2 text-sm font-semibold transition"
+                  style={{
+                    border: "1px solid var(--border)",
+                    background: "var(--panel)",
+                    color: "var(--text)",
+                  }}
+                >
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <NavLink href="/auth">Log In</NavLink>
+            )}
 
             <div
               className="ml-2 inline-flex items-center gap-1 rounded-2xl border p-1"
@@ -237,16 +281,38 @@ export default function Navbar() {
                   Home
                 </NavLink>
 
-                <NavLink
-                  href="/leaderboard"
-                  onClick={() => setOpen(false)}
-                >
+                <NavLink href="/leaderboard" onClick={() => setOpen(false)}>
                   🏆 Leaderboard
                 </NavLink>
 
                 <NavLink href="/submit" onClick={() => setOpen(false)}>
                   Submit
                 </NavLink>
+
+                {isAuthed ? (
+                  <>
+                    <NavLink href="/account" onClick={() => setOpen(false)}>
+                      Account
+                    </NavLink>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="rounded-xl px-3 py-2 text-left text-sm font-semibold transition"
+                      style={{
+                        border: "1px solid var(--border)",
+                        background: "var(--panel)",
+                        color: "var(--text)",
+                      }}
+                    >
+                      Log Out
+                    </button>
+                  </>
+                ) : (
+                  <NavLink href="/auth" onClick={() => setOpen(false)}>
+                    Log In
+                  </NavLink>
+                )}
 
                 <div className="mt-2">
                   <div
