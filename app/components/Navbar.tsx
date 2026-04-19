@@ -2,103 +2,21 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
-
-type ThemeMode = "system" | "light" | "dark";
-
-function getSystemTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "dark";
-  return window.matchMedia &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-function applyTheme(mode: ThemeMode) {
-  const resolved = mode === "system" ? getSystemTheme() : mode;
-  const root = document.documentElement;
-
-  if (resolved === "dark") {
-    root.style.setProperty("--bg", "#070A0D");
-    root.style.setProperty("--bg2", "rgba(16, 185, 129, 0.08)");
-    root.style.setProperty("--panel", "rgba(255,255,255,0.05)");
-    root.style.setProperty("--panel2", "rgba(0,0,0,0.25)");
-    root.style.setProperty("--border", "rgba(255,255,255,0.10)");
-    root.style.setProperty("--text", "rgba(255,255,255,0.95)");
-    root.style.setProperty("--muted", "rgba(255,255,255,0.65)");
-    root.style.setProperty("--muted2", "rgba(255,255,255,0.45)");
-    root.style.setProperty("--accent", "#34D399");
-    root.style.setProperty("--accentText", "#07120E");
-    root.style.setProperty("--glow1", "rgba(52, 211, 153, 0.22)");
-    root.style.setProperty("--glow2", "rgba(56, 189, 248, 0.14)");
-    root.style.setProperty("--shadow", "0 0 0 1px rgba(255,255,255,0.03)");
-    root.style.colorScheme = "dark";
-  } else {
-    root.style.setProperty("--bg", "#F7FAF9");
-    root.style.setProperty("--bg2", "rgba(16, 185, 129, 0.10)");
-    root.style.setProperty("--panel", "rgba(255,255,255,0.78)");
-    root.style.setProperty("--panel2", "rgba(255,255,255,0.55)");
-    root.style.setProperty("--border", "rgba(15, 23, 42, 0.10)");
-    root.style.setProperty("--text", "rgba(15, 23, 42, 0.95)");
-    root.style.setProperty("--muted", "rgba(15, 23, 42, 0.65)");
-    root.style.setProperty("--muted2", "rgba(15, 23, 42, 0.50)");
-    root.style.setProperty("--accent", "#059669");
-    root.style.setProperty("--accentText", "#F8FAFC");
-    root.style.setProperty("--glow1", "rgba(16, 185, 129, 0.18)");
-    root.style.setProperty("--glow2", "rgba(59, 130, 246, 0.12)");
-    root.style.setProperty("--shadow", "0 12px 30px rgba(2, 6, 23, 0.06)");
-    root.style.colorScheme = "light";
-  }
-}
-
-function ThemePill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className="rounded-xl px-3 py-1.5 text-xs font-semibold transition"
-      style={{
-        background: active ? "var(--bg2)" : "transparent",
-        border: active
-          ? "1px solid rgba(16,185,129,0.28)"
-          : "1px solid transparent",
-        color: "var(--text)",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
 
 export default function Navbar() {
   const [open, setOpen] = useState(false);
-  const [theme, setTheme] = useState<ThemeMode>("system");
   const [isAuthed, setIsAuthed] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const saved =
-      (localStorage.getItem("gf_theme") as ThemeMode | null) ?? "system";
-
-    setTheme(saved);
-    applyTheme(saved);
-
-    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      const current =
-        (localStorage.getItem("gf_theme") as ThemeMode | null) ?? "system";
-      if (current === "system") applyTheme("system");
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 24);
     };
 
-    mq?.addEventListener?.("change", onChange);
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
 
     const loadSession = async () => {
       const {
@@ -117,7 +35,7 @@ export default function Navbar() {
     });
 
     return () => {
-      mq?.removeEventListener?.("change", onChange);
+      window.removeEventListener("scroll", handleScroll);
       subscription.unsubscribe();
     };
   }, []);
@@ -127,256 +45,341 @@ export default function Navbar() {
     setOpen(false);
   }
 
-  function setThemeAndPersist(mode: ThemeMode) {
-    setTheme(mode);
-    localStorage.setItem("gf_theme", mode);
-    applyTheme(mode);
-  }
+  const headerStyle: React.CSSProperties = scrolled
+    ? {
+        background: "rgba(250, 247, 241, 0.94)",
+        borderBottom: "1px solid rgba(19,39,29,0.08)",
+        backdropFilter: "blur(14px)",
+        boxShadow: "0 10px 30px rgba(19,39,29,0.06)",
+      }
+    : {
+        background: "rgba(255,255,255,0.04)",
+        borderBottom: "1px solid rgba(245,243,239,0.10)",
+        backdropFilter: "blur(10px)",
+      };
 
-  const mobileResolvedTheme =
-    theme === "system" ? getSystemTheme() : theme;
+  const brandTextColor = scrolled ? "#1F3A2C" : "#F5F3EF";
+  const navTextColor = scrolled ? "rgba(19,39,29,0.82)" : "rgba(245,243,239,0.88)";
+  const menuButtonStyle: React.CSSProperties = scrolled
+    ? {
+        background: "#F5F3EF",
+        color: "#1F3A2C",
+        border: "1px solid rgba(19,39,29,0.10)",
+        boxShadow: "0 8px 18px rgba(19,39,29,0.08)",
+      }
+    : {
+        background: "rgba(245,243,239,0.14)",
+        color: "#F5F3EF",
+        border: "1px solid rgba(245,243,239,0.18)",
+        backdropFilter: "blur(10px)",
+      };
+
+  const desktopPillStyle: React.CSSProperties = scrolled
+    ? {
+        background: "#13271D",
+        color: "#F5F3EF",
+        border: "1px solid rgba(19,39,29,0.08)",
+      }
+    : {
+        background: "rgba(245,243,239,0.08)",
+        color: "#F5F3EF",
+        border: "1px solid rgba(245,243,239,0.16)",
+        backdropFilter: "blur(10px)",
+      };
 
   return (
-    <header
-      className="sticky top-0 z-50 backdrop-blur"
-      style={{
-        background: "color-mix(in srgb, var(--bg) 85%, transparent)",
-        borderBottom: "1px solid var(--border)",
-      }}
-    >
-      <div className="mx-auto max-w-7xl px-4">
-        <div className="flex h-16 items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="flex items-center gap-2"
-            onClick={() => setOpen(false)}
-          >
+    <>
+      <header
+        className="fixed inset-x-0 top-0 z-50 transition-all duration-300"
+        style={headerStyle}
+      >
+        <div className="mx-auto flex h-[72px] max-w-[1440px] items-center justify-between px-4 md:px-8">
+          <Link href="/" className="flex items-center gap-3" onClick={() => setOpen(false)}>
             <div
-              className="grid h-9 w-9 place-items-center rounded-xl"
+              className="flex h-9 w-9 items-center justify-center rounded-full"
               style={{
-                background: "var(--bg2)",
-                border: "1px solid var(--border)",
+                border: scrolled
+                  ? "1px solid rgba(19,39,29,0.10)"
+                  : "1px solid rgba(245,243,239,0.16)",
+                background: scrolled
+                  ? "rgba(19,39,29,0.04)"
+                  : "rgba(245,243,239,0.06)",
               }}
-              aria-hidden="true"
             >
-              <span style={{ color: "var(--accent)" }}>🌱</span>
+              <span
+                className="text-sm"
+                style={{ color: scrolled ? "#1F3A2C" : "#F5F3EF" }}
+              >
+                ⟲
+              </span>
             </div>
 
-            <div className="leading-tight">
-              <div
-                className="text-sm font-semibold"
-                style={{ color: "var(--text)" }}
-              >
-                GreenFlare
-              </div>
-              <div
-                className="text-[11px]"
-                style={{ color: "var(--muted2)" }}
-              >
-                Verified real-world impact
-              </div>
+            <div
+              className="font-serif text-[22px] leading-none tracking-[-0.02em]"
+              style={{ color: brandTextColor }}
+            >
+              GreenFlare
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-2 md:flex">
-            <NavLink href="/">Home</NavLink>
-            <NavLink href="/leaderboard">🏆 Leaderboard</NavLink>
-            <NavLink href="/submit">Submit</NavLink>
+          <nav className="hidden items-center gap-10 md:flex">
+            <DesktopTextLink href="#about" color={navTextColor}>
+              About
+            </DesktopTextLink>
+            <DesktopTextLink href="#impact" color={navTextColor}>
+              Impact
+            </DesktopTextLink>
+            <DesktopTextLink href="#how-it-works" color={navTextColor}>
+              How It Works
+            </DesktopTextLink>
+            <DesktopTextLink href="#community" color={navTextColor}>
+              Community
+            </DesktopTextLink>
+          </nav>
 
+          <div className="hidden items-center gap-3 md:flex">
             {isAuthed ? (
               <>
-                <NavLink href="/account">Account</NavLink>
+                <PillLink href="/account" style={desktopPillStyle}>
+                  Account
+                </PillLink>
+                <PillLink href="/submit" style={desktopPillStyle}>
+                  Submit Action
+                </PillLink>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-xl px-3 py-2 text-sm font-semibold transition"
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--panel)",
-                    color: "var(--text)",
-                  }}
+                  className="inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-semibold transition-transform duration-200 hover:scale-[1.02]"
+                  style={desktopPillStyle}
                 >
                   Log Out
                 </button>
               </>
             ) : (
-              <NavLink href="/auth">Log In</NavLink>
+              <PillLink
+                href="/auth"
+                style={
+                  scrolled
+                    ? {
+                        background: "#13271D",
+                        color: "#F5F3EF",
+                        border: "1px solid rgba(19,39,29,0.08)",
+                      }
+                    : {
+                        background: "rgba(19,39,29,0.90)",
+                        color: "#F5F3EF",
+                        border: "1px solid rgba(245,243,239,0.08)",
+                      }
+                }
+              >
+                Log In
+              </PillLink>
             )}
-
-            <div
-              className="ml-2 inline-flex items-center gap-1 rounded-2xl border p-1"
-              style={{
-                borderColor: "var(--border)",
-                background: "var(--panel)",
-              }}
-            >
-              <ThemePill
-                active={theme === "system"}
-                onClick={() => setThemeAndPersist("system")}
-              >
-                System
-              </ThemePill>
-              <ThemePill
-                active={theme === "light"}
-                onClick={() => setThemeAndPersist("light")}
-              >
-                Light
-              </ThemePill>
-              <ThemePill
-                active={theme === "dark"}
-                onClick={() => setThemeAndPersist("dark")}
-              >
-                Dark
-              </ThemePill>
-            </div>
-          </nav>
-
-          <div className="flex items-center gap-2 md:hidden">
-            <button
-              type="button"
-              onClick={() =>
-                setThemeAndPersist(
-                  mobileResolvedTheme === "dark" ? "light" : "dark"
-                )
-              }
-              className="rounded-xl px-3 py-2 text-sm font-semibold transition"
-              style={{
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-                color: "var(--text)",
-              }}
-              aria-label="Toggle theme"
-            >
-              {mobileResolvedTheme === "dark" ? "☀️" : "🌙"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setOpen((v) => !v)}
-              className="rounded-xl px-3 py-2 text-sm font-semibold transition"
-              style={{
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-                color: "var(--text)",
-              }}
-              aria-expanded={open}
-              aria-controls="mobile-nav"
-            >
-              {open ? "Close" : "Menu"}
-            </button>
           </div>
+
+          <button
+            type="button"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            onClick={() => setOpen((v) => !v)}
+            className="inline-flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-300 md:hidden"
+            style={menuButtonStyle}
+          >
+            {open ? <X size={22} strokeWidth={2.2} /> : <Menu size={22} strokeWidth={2.2} />}
+          </button>
         </div>
+      </header>
 
-        {open ? (
-          <div id="mobile-nav" className="pb-4 md:hidden">
-            <div
-              className="rounded-2xl p-3"
-              style={{
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-              }}
-            >
-              <div className="grid gap-2">
-                <NavLink href="/" onClick={() => setOpen(false)}>
-                  Home
-                </NavLink>
-
-                <NavLink href="/leaderboard" onClick={() => setOpen(false)}>
-                  🏆 Leaderboard
-                </NavLink>
-
-                <NavLink href="/submit" onClick={() => setOpen(false)}>
-                  Submit
-                </NavLink>
-
-                {isAuthed ? (
-                  <>
-                    <NavLink href="/account" onClick={() => setOpen(false)}>
-                      Account
-                    </NavLink>
-
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="rounded-xl px-3 py-2 text-left text-sm font-semibold transition"
-                      style={{
-                        border: "1px solid var(--border)",
-                        background: "var(--panel)",
-                        color: "var(--text)",
-                      }}
-                    >
-                      Log Out
-                    </button>
-                  </>
-                ) : (
-                  <NavLink href="/auth" onClick={() => setOpen(false)}>
-                    Log In
-                  </NavLink>
-                )}
-
-                <div className="mt-2">
-                  <div
-                    className="text-xs font-semibold"
-                    style={{ color: "var(--muted2)" }}
-                  >
-                    Theme
-                  </div>
-
-                  <div
-                    className="mt-2 inline-flex items-center gap-1 rounded-2xl border p-1"
-                    style={{
-                      borderColor: "var(--border)",
-                      background: "var(--panel2)",
-                    }}
-                  >
-                    <ThemePill
-                      active={theme === "system"}
-                      onClick={() => setThemeAndPersist("system")}
-                    >
-                      System
-                    </ThemePill>
-                    <ThemePill
-                      active={theme === "light"}
-                      onClick={() => setThemeAndPersist("light")}
-                    >
-                      Light
-                    </ThemePill>
-                    <ThemePill
-                      active={theme === "dark"}
-                      onClick={() => setThemeAndPersist("dark")}
-                    >
-                      Dark
-                    </ThemePill>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </header>
+      <MobileOverlay
+        open={open}
+        onClose={() => setOpen(false)}
+        isAuthed={isAuthed}
+        onLogout={handleLogout}
+      />
+    </>
   );
 }
 
-function NavLink({
+function DesktopTextLink({
   href,
+  color,
   children,
-  onClick,
 }: {
   href: string;
+  color: string;
   children: React.ReactNode;
-  onClick?: () => void;
+}) {
+  return (
+    <a
+      href={href}
+      className="text-[16px] font-medium transition-opacity duration-200 hover:opacity-70"
+      style={{ color }}
+    >
+      {children}
+    </a>
+  );
+}
+
+function PillLink({
+  href,
+  style,
+  children,
+}: {
+  href: string;
+  style: React.CSSProperties;
+  children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
-      onClick={onClick}
-      className="rounded-xl px-3 py-2 text-sm font-semibold transition"
+      className="inline-flex h-11 items-center justify-center rounded-full px-6 text-sm font-semibold transition-transform duration-200 hover:scale-[1.02]"
+      style={style}
+    >
+      {children}
+    </Link>
+  );
+}
+
+function MobileOverlay({
+  open,
+  onClose,
+  isAuthed,
+  onLogout,
+}: {
+  open: boolean;
+  onClose: () => void;
+  isAuthed: boolean;
+  onLogout: () => void | Promise<void>;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-[60] md:hidden"
       style={{
-        border: "1px solid var(--border)",
-        background: "var(--panel)",
-        color: "var(--text)",
+        background:
+          "linear-gradient(180deg, rgba(18,88,61,0.96) 0%, rgba(16,70,52,0.98) 100%)",
+        backdropFilter: "blur(8px)",
       }}
+    >
+      <div className="flex h-full flex-col px-8 pb-10 pt-8">
+        <div className="mb-12 flex items-center justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close menu"
+            className="inline-flex h-12 w-12 items-center justify-center rounded-full"
+            style={{
+              background: "rgba(245,243,239,0.10)",
+              color: "#F5F3EF",
+              border: "1px solid rgba(245,243,239,0.16)",
+            }}
+          >
+            <X size={24} strokeWidth={2.2} />
+          </button>
+        </div>
+
+        <div className="flex flex-1 flex-col items-center justify-center gap-8 text-center">
+          <MobileMenuLink href="#about" onClick={onClose}>
+            About
+          </MobileMenuLink>
+          <MobileMenuLink href="#impact" onClick={onClose}>
+            Impact
+          </MobileMenuLink>
+          <MobileMenuLink href="#how-it-works" onClick={onClose}>
+            How It Works
+          </MobileMenuLink>
+          <MobileMenuLink href="#community" onClick={onClose}>
+            Community
+          </MobileMenuLink>
+          {isAuthed && (
+            <MobileMenuLink href="/account" onClick={onClose}>
+              Account
+            </MobileMenuLink>
+          )}
+          <MobileMenuLink href="/leaderboard" onClick={onClose}>
+            Leaderboard
+          </MobileMenuLink>
+        </div>
+
+        <div className="pt-6">
+          {isAuthed ? (
+            <div className="flex flex-col gap-3">
+              <Link
+                href="/submit"
+                onClick={onClose}
+                className="inline-flex h-14 w-full items-center justify-center rounded-full px-8 text-lg font-medium"
+                style={{
+                  background: "#D9952C",
+                  color: "#13271D",
+                }}
+              >
+                Submit Action
+              </Link>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  await onLogout();
+                  onClose();
+                }}
+                className="inline-flex h-14 w-full items-center justify-center rounded-full px-8 text-lg font-medium"
+                style={{
+                  background: "rgba(245,243,239,0.10)",
+                  color: "#F5F3EF",
+                  border: "1px solid rgba(245,243,239,0.16)",
+                }}
+              >
+                Log Out
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/auth"
+              onClick={onClose}
+              className="inline-flex h-14 w-full items-center justify-center rounded-full px-8 text-lg font-medium"
+              style={{
+                background: "#D9952C",
+                color: "#13271D",
+              }}
+            >
+              Log In
+            </Link>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MobileMenuLink({
+  href,
+  onClick,
+  children,
+}: {
+  href: string;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const isAnchor = href.startsWith("#");
+
+  if (isAnchor) {
+    return (
+      <a
+        href={href}
+        onClick={onClick}
+        className="font-serif text-[48px] leading-none tracking-[-0.03em] text-[#F5F3EF] transition-opacity duration-200 hover:opacity-80"
+      >
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      onClick={onClick}
+      className="font-serif text-[48px] leading-none tracking-[-0.03em] text-[#F5F3EF] transition-opacity duration-200 hover:opacity-80"
     >
       {children}
     </Link>

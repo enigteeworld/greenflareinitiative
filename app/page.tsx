@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type RecentItem = {
@@ -13,8 +13,6 @@ type RecentItem = {
   chain_network?: string | null;
 };
 
-type ThemeMode = "system" | "light" | "dark";
-
 function fmt(n: number) {
   return new Intl.NumberFormat().format(n);
 }
@@ -22,57 +20,26 @@ function fmt(n: number) {
 function actionLabel(actionType?: string | null) {
   switch (actionType) {
     case "TREE":
-      return "🌳 Tree Planting";
+      return "Tree Planting";
     case "RECYCLE":
-      return "♻️ Recycling";
+      return "Recycling";
     case "CLEANUP":
-      return "🧹 Community Cleanup";
+      return "Community Cleanup";
     default:
-      return "🌱 Impact Action";
+      return "Impact Action";
   }
 }
 
-function getSystemTheme(): "light" | "dark" {
-  if (typeof window === "undefined") return "dark";
-  return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
-function applyTheme(mode: ThemeMode) {
-  const resolved = mode === "system" ? getSystemTheme() : mode;
-  const root = document.documentElement;
-
-  if (resolved === "dark") {
-    root.style.setProperty("--bg", "#070A0D");
-    root.style.setProperty("--bg2", "rgba(16, 185, 129, 0.08)");
-    root.style.setProperty("--panel", "rgba(255,255,255,0.05)");
-    root.style.setProperty("--panel2", "rgba(0,0,0,0.25)");
-    root.style.setProperty("--border", "rgba(255,255,255,0.10)");
-    root.style.setProperty("--text", "rgba(255,255,255,0.95)");
-    root.style.setProperty("--muted", "rgba(255,255,255,0.65)");
-    root.style.setProperty("--muted2", "rgba(255,255,255,0.45)");
-    root.style.setProperty("--accent", "#34D399");
-    root.style.setProperty("--accentText", "#07120E");
-    root.style.setProperty("--glow1", "rgba(52, 211, 153, 0.22)");
-    root.style.setProperty("--glow2", "rgba(56, 189, 248, 0.14)");
-    root.style.setProperty("--shadow", "0 0 0 1px rgba(255,255,255,0.03)");
-    root.style.colorScheme = "dark";
-  } else {
-    root.style.setProperty("--bg", "#F7FAF9");
-    root.style.setProperty("--bg2", "rgba(16, 185, 129, 0.10)");
-    root.style.setProperty("--panel", "rgba(255,255,255,0.78)");
-    root.style.setProperty("--panel2", "rgba(255,255,255,0.55)");
-    root.style.setProperty("--border", "rgba(15, 23, 42, 0.10)");
-    root.style.setProperty("--text", "rgba(15, 23, 42, 0.95)");
-    root.style.setProperty("--muted", "rgba(15, 23, 42, 0.65)");
-    root.style.setProperty("--muted2", "rgba(15, 23, 42, 0.50)");
-    root.style.setProperty("--accent", "#059669");
-    root.style.setProperty("--accentText", "#F8FAFC");
-    root.style.setProperty("--glow1", "rgba(16, 185, 129, 0.18)");
-    root.style.setProperty("--glow2", "rgba(59, 130, 246, 0.12)");
-    root.style.setProperty("--shadow", "0 12px 30px rgba(2, 6, 23, 0.06)");
-    root.style.colorScheme = "light";
+function iconForAction(actionType?: string | null) {
+  switch (actionType) {
+    case "TREE":
+      return "🌳";
+    case "RECYCLE":
+      return "♻️";
+    case "CLEANUP":
+      return "🧹";
+    default:
+      return "🌱";
   }
 }
 
@@ -80,13 +47,106 @@ function explorerTxUrl(tx?: string | null, network?: string | null) {
   if (!tx) return null;
   const n = (network || "").toLowerCase();
 
-  if (n === "coston2") return `https://coston2-explorer.flare.network/tx/${tx}`;
+  if (n === "coston2") {
+    return `https://coston2-explorer.flare.network/tx/${tx}`;
+  }
 
   return null;
 }
 
+function useScrollReveal<T extends HTMLElement>() {
+  const ref = useRef<T | null>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.16 }
+    );
+
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
+
+  return {
+    ref,
+    style: {
+      opacity: visible ? 1 : 0,
+      transform: visible ? "translateY(0px)" : "translateY(24px)",
+      transition: "opacity 700ms ease, transform 700ms ease",
+    } as React.CSSProperties,
+  };
+}
+
+function useCountUp(target: number, duration = 1200) {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    let start = 0;
+    let startTime: number | null = null;
+
+    function tick(timestamp: number) {
+      if (startTime === null) startTime = timestamp;
+      const progress = Math.min((timestamp - startTime) / duration, 1);
+      const next = Math.floor(progress * target);
+
+      if (next !== start) {
+        start = next;
+        setCount(next);
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(tick);
+      }
+    }
+
+    requestAnimationFrame(tick);
+  }, [target, duration]);
+
+  return count;
+}
+
+const impactCards = [
+  {
+    title: "Tree Planting",
+    image: "/images/tree-planting-thumb.jpg",
+    description:
+      "Community tree planting actions that improve air quality, restore ecosystems, and create visible local impact.",
+    href: "/submit",
+  },
+  {
+    title: "Recycling",
+    image: "/images/recycling-thumb.jpg",
+    description:
+      "Sorting and collection programs with designated bins, starting from UNIBEN Hall 4 and expanding across campuses.",
+    href: "/submit",
+  },
+  {
+    title: "Cleanups",
+    image: "/images/cleanup-thumb.jpg",
+    description:
+      "Coordinated waste removal from roadsides, hostels, and public spaces — turning pollution into visible progress.",
+    href: "/submit",
+  },
+  {
+    title: "Verification",
+    image: "/images/blockchain-thumb.jpg",
+    description:
+      "Every approved action becomes a trusted proof record that communities, partners, and sponsors can review confidently.",
+    href: "/verify",
+  },
+];
+
 export default function HomePage() {
-  const [theme, setTheme] = useState<ThemeMode>("system");
   const [loading, setLoading] = useState(true);
 
   const [stats, setStats] = useState({
@@ -98,23 +158,22 @@ export default function HomePage() {
   const [recent, setRecent] = useState<RecentItem[]>([]);
 
   useEffect(() => {
-    const saved =
-      (typeof window !== "undefined"
-        ? (localStorage.getItem("gf_theme") as ThemeMode | null)
-        : null) ?? "system";
-
-    setTheme(saved);
-    if (typeof window !== "undefined") applyTheme(saved);
-
-    const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      const current =
-        (localStorage.getItem("gf_theme") as ThemeMode | null) ?? "system";
-      if (current === "system") applyTheme("system");
-    };
-    mq?.addEventListener?.("change", onChange);
-
-    return () => mq?.removeEventListener?.("change", onChange);
+    const root = document.documentElement;
+    root.style.setProperty("--bg", "#F5F3EA");
+    root.style.setProperty("--bg2", "#ECE6DA");
+    root.style.setProperty("--panel", "rgba(255,255,255,0.72)");
+    root.style.setProperty("--panel2", "rgba(255,255,255,0.50)");
+    root.style.setProperty("--border", "rgba(15,23,42,0.10)");
+    root.style.setProperty("--text", "#13271D");
+    root.style.setProperty("--muted", "rgba(19,39,29,0.72)");
+    root.style.setProperty("--muted2", "rgba(19,39,29,0.52)");
+    root.style.setProperty("--accent", "#C58B2A");
+    root.style.setProperty("--accent2", "#5D734D");
+    root.style.setProperty("--deep", "#1F3A2C");
+    root.style.setProperty("--sand", "#D8D0C2");
+    root.style.setProperty("--soft", "#FAF7F1");
+    root.style.setProperty("--shadow", "0 18px 40px rgba(31,58,44,0.08)");
+    root.style.colorScheme = "light";
   }, []);
 
   useEffect(() => {
@@ -133,8 +192,13 @@ export default function HomePage() {
       }
 
       const total = data.length;
-      const approved = data.filter((d: { status: string; }) => d.status === "approved").length;
-      const points = data.reduce((sum: any, d: { points: any; }) => sum + (d.points || 0), 0);
+      const approved = data.filter(
+        (d: { status: string }) => d.status === "approved"
+      ).length;
+      const points = data.reduce(
+        (sum: number, d: { points: number | null }) => sum + (d.points || 0),
+        0
+      );
 
       setStats({ total, approved, points });
     }
@@ -142,10 +206,12 @@ export default function HomePage() {
     async function loadRecent() {
       const { data, error } = await supabase
         .from("submissions")
-        .select("id, action_type, location_cell, created_at, chain_tx, chain_network")
+        .select(
+          "id, action_type, location_cell, created_at, chain_tx, chain_network"
+        )
         .eq("status", "approved")
         .order("created_at", { ascending: false })
-        .limit(5);
+        .limit(4);
 
       if (!mounted) return;
 
@@ -155,7 +221,7 @@ export default function HomePage() {
           .select("id, action_type, location_cell, created_at")
           .eq("status", "approved")
           .order("created_at", { ascending: false })
-          .limit(5);
+          .limit(4);
 
         setRecent((fallback.data || []) as RecentItem[]);
         return;
@@ -174,603 +240,697 @@ export default function HomePage() {
     };
   }, []);
 
-  const breakdown = useMemo(() => {
-    const tree = recent.filter((r) => r.action_type === "TREE").length;
-    const recycle = recent.filter((r) => r.action_type === "RECYCLE").length;
-    const cleanup = recent.filter((r) => r.action_type === "CLEANUP").length;
-    return { tree, recycle, cleanup };
-  }, [recent]);
-
-  const milestones = useMemo(() => {
-    const targetPoints = 5000;
-    const targetActions = 150;
-
-    const pointsPct =
-      targetPoints <= 0 ? 0 : Math.min(100, (stats.points / targetPoints) * 100);
-
-    const actionsPct =
-      targetActions <= 0 ? 0 : Math.min(100, (stats.approved / targetActions) * 100);
-
-    return { targetPoints, targetActions, pointsPct, actionsPct };
-  }, [stats.points, stats.approved]);
-
-  function setThemeAndPersist(mode: ThemeMode) {
-    setTheme(mode);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("gf_theme", mode);
-      applyTheme(mode);
-    }
-  }
+  const pointsCount = useCountUp(stats.points, 1200);
+  const actionsCount = useCountUp(stats.approved, 1200);
+  const submissionsCount = useCountUp(stats.total, 1200);
 
   return (
-    <div className="relative" style={{ background: "var(--bg)", color: "var(--text)" }}>
-      {/* Background glows */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div
-          className="absolute -top-24 left-1/2 h-[520px] w-[900px] -translate-x-1/2 rounded-full blur-3xl"
-          style={{ background: "var(--glow1)" }}
+    <div style={{ background: "var(--bg)", color: "var(--text)" }}>
+      <Hero />
+      <div className="relative z-[2]">
+        <AboutSection />
+        <ImpactGridSection />
+        <HowItWorksSection
+          points={pointsCount}
+          actions={actionsCount}
+          submissions={submissionsCount}
         />
-        <div
-          className="absolute bottom-0 right-0 h-[520px] w-[520px] rounded-full blur-3xl"
-          style={{ background: "var(--glow2)" }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(circle_at_top, rgba(255,255,255,0.10), transparent 55%)",
-            opacity: theme === "dark" ? 0.4 : 0.25,
-          }}
-        />
+        <CommunitySection recent={recent} loading={loading} />
       </div>
+    </div>
+  );
+}
 
-      <div className="relative mx-auto max-w-6xl px-4">
-        {/* Top bar with theme toggle */}
-        <div className="pt-6 flex items-center justify-between gap-3">
+function Hero() {
+  return (
+    <section
+      className="relative w-full overflow-hidden"
+      style={{
+        minHeight: "100svh",
+        backgroundColor: "#104634",
+      }}
+    >
+      <div
+        className="absolute inset-0 z-[0]"
+        style={{
+          backgroundImage: "url('/images/aerial-community-event.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center center",
+          backgroundRepeat: "no-repeat",
+          willChange: "auto",
+        }}
+      />
+
+      <div
+        className="absolute inset-0 z-[1]"
+        style={{
+          background:
+            "linear-gradient(180deg, rgba(16,70,52,0.46) 0%, rgba(16,70,52,0.55) 38%, rgba(13,39,29,0.76) 100%)",
+        }}
+      />
+
+      <div
+        className="absolute inset-0 z-[1]"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 36%, rgba(224,184,109,0.10), transparent 28%)",
+        }}
+      />
+
+      <div className="relative z-[2] mx-auto flex min-h-[100svh] w-full max-w-[1400px] flex-col justify-center px-5 pb-16 pt-28 md:px-12 md:pb-20 md:pt-32">
+        <div className="mx-auto flex w-full max-w-[920px] flex-col items-center text-center">
           <div
-            className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
+            className="mb-6 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] md:mb-7 md:px-5 md:py-2.5 md:text-[11px]"
             style={{
-              borderColor: "var(--border)",
-              background: "var(--panel2)",
-              color: "var(--muted)",
+              borderColor: "rgba(245,243,239,0.22)",
+              background: "rgba(245,243,239,0.06)",
+              color: "rgba(245,243,239,0.84)",
+              backdropFilter: "blur(8px)",
             }}
           >
             <span
               className="h-2 w-2 rounded-full"
-              style={{
-                background: "var(--accent)",
-                boxShadow: "0 0 18px rgba(52,211,153,0.45)",
-              }}
+              style={{ background: "#E0B86D" }}
             />
             Building in public • Nigeria-first • verification-first
           </div>
-        </div>
 
-        {/* HERO */}
-        <section className="pt-10 md:pt-14">
-          <div className="mt-4 grid gap-10 md:grid-cols-12 md:items-center">
-            <div className="md:col-span-7">
-              <h1 className="text-3xl md:text-5xl font-semibold tracking-tight">
-                Real-world environmental action,
-                <span style={{ color: "var(--accent)" }}> verified</span> and
-                <span style={{ color: "var(--accent)" }}> rewarded</span>.
-              </h1>
+          <h1
+            className="max-w-[860px] font-serif text-[52px] leading-[0.95] tracking-[-0.03em] text-[#F5F3EF] sm:text-[72px] md:text-[96px] lg:text-[108px]"
+            style={{
+              textShadow: "0 10px 34px rgba(0,0,0,0.12)",
+            }}
+          >
+            Environmental action,
+            <br />
+            made visible.
+          </h1>
 
-              <p className="mt-4 leading-relaxed max-w-xl" style={{ color: "var(--muted)" }}>
-                GreenFlare is a community-led initiative promoting tree planting,
-                recycling, and cleanups — with transparent, verifiable impact
-                tracking. Sponsors see real proof. Communities earn points.
-              </p>
+          <p
+            className="mx-auto mt-5 max-w-[690px] text-[16px] leading-relaxed text-[rgba(245,243,239,0.88)] sm:text-[18px] md:mt-6 md:text-[22px]"
+            style={{
+              textShadow: "0 6px 20px rgba(0,0,0,0.10)",
+            }}
+          >
+            GreenFlare helps communities track, verify, and reward real-world
+            actions like tree planting, recycling, and cleanups.
+          </p>
 
-              <div className="mt-6 flex flex-col sm:flex-row gap-3">
-                <Link
-                  href="/submit"
-                  className="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition"
-                  style={{ background: "var(--accent)", color: "var(--accentText)" }}
-                >
-                  Submit an Impact Action
-                </Link>
+          <div className="mt-8 flex w-full flex-col items-center justify-center gap-3 sm:w-auto sm:flex-row md:mt-10">
+            <Link
+              href="/submit"
+              className="inline-flex h-12 w-full max-w-[260px] items-center justify-center rounded-full px-8 text-sm font-medium uppercase tracking-[0.08em] transition-all duration-300 hover:scale-[1.03] md:h-14 md:min-w-[224px]"
+              style={{
+                background: "#F5F3EF",
+                color: "#13271D",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.10)",
+              }}
+            >
+              Explore Impact
+            </Link>
 
-                <Link
-                  href="/verify"
-                  className="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition"
-                  style={{
-                    border: `1px solid var(--border)`,
-                    background: "var(--panel)",
-                    color: "var(--text)",
-                  }}
-                >
-                  Review Impact
-                </Link>
+            <Link
+              href="/leaderboard"
+              className="inline-flex h-12 w-full max-w-[260px] items-center justify-center rounded-full border px-8 text-sm font-medium uppercase tracking-[0.08em] transition-all duration-300 hover:scale-[1.03] md:h-14 md:min-w-[224px]"
+              style={{
+                borderColor: "rgba(245,243,239,0.24)",
+                background: "rgba(245,243,239,0.04)",
+                color: "#F5F3EF",
+                boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.03)",
+              }}
+            >
+              View Leaders
+            </Link>
+          </div>
 
-                <Link
-                  href="/leaderboard"
-                  className="inline-flex items-center justify-center rounded-xl px-5 py-3 text-sm font-semibold transition"
-                  style={{
-                    border: `1px solid rgba(16,185,129,0.28)`,
-                    background: "var(--bg2)",
-                    color: "var(--text)",
-                  }}
-                >
-                  🏆 Leaderboard
-                </Link>
-              </div>
-
-              <div className="mt-6 grid grid-cols-3 gap-3">
-                <Stat label="Total Points" value={fmt(stats.points)} />
-                <Stat label="Verified Actions" value={fmt(stats.approved)} />
-                <Stat label="Submissions" value={fmt(stats.total)} />
-              </div>
-
-              <div className="mt-3 text-xs" style={{ color: "var(--muted2)" }}>
-                Pilot-ready environmental action tracking and verification
-              </div>
-            </div>
-
-            {/* Right: panels */}
-            <div className="md:col-span-5">
-              <Panel>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-sm font-semibold">How GreenFlare works</div>
-                    <div className="mt-1 text-xs" style={{ color: "var(--muted2)" }}>
-                      MVP now • stronger verification later
-                    </div>
-                  </div>
-                  <div
-                    className="rounded-xl px-3 py-1 text-xs"
-                    style={{
-                      background: "rgba(16,185,129,0.14)",
-                      border: `1px solid rgba(16,185,129,0.25)`,
-                      color: "var(--text)",
-                    }}
-                  >
-                    Pilot-ready
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3">
-                  <Step n="01" title="Do an action" desc="Plant a tree, recycle, or clean your community." />
-                  <Step n="02" title="Submit proof" desc="Upload proof + location notes through the GreenFlare web app." />
-                  <Step
-                    n="03"
-                    title="Review + reward"
-                    desc="Verified actions earn points and become trusted impact records for communities, partners, and sponsors."
-                  />
-                </div>
-              </Panel>
-
-              <div className="mt-3">
-                <Panel>
-                  <div className="text-sm font-semibold">Why this matters (Nigeria)</div>
-                  <p className="mt-2 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>
-                    Environmental projects often struggle with trust and reporting.
-                    GreenFlare aims to make impact visible, verifiable, and fundable —
-                    so cleanups and climate action can scale sustainably.
-                  </p>
-                </Panel>
-              </div>
+          <div className="mt-9 flex flex-col items-center md:mt-10">
+            <div className="relative h-12 w-[1px] bg-[rgba(245,243,239,0.34)]">
+              <div className="absolute left-1/2 top-0 h-2.5 w-2.5 -translate-x-1/2 rounded-full bg-white animate-bounce" />
             </div>
           </div>
-        </section>
+        </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* DASH */}
-        <section className="mt-14 md:mt-20 pb-16">
-          <div className="grid gap-4 md:grid-cols-12">
-            {/* Impact Overview */}
-            <Card className="md:col-span-7">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-lg font-semibold">Impact Overview</h2>
-                  <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                    Live totals from MVP submissions.
-                  </p>
-                </div>
-                <Link
-                  href="/submit"
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition"
-                  style={{ border: `1px solid var(--border)`, background: "var(--panel)" }}
-                >
-                  Add impact
-                </Link>
-              </div>
+function AboutSection() {
+  const { ref: textRef, style: textStyle } = useScrollReveal<HTMLElement>();
+  const { ref: imageRef, style: imageStyle } = useScrollReveal<HTMLDivElement>();
+  const { ref: cardRef, style: cardStyle } = useScrollReveal<HTMLDivElement>();
 
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Metric title="Tree Planting" value={fmt(breakdown.tree)} sub="(from recent verified)" />
-                <Metric title="Recycling" value={fmt(breakdown.recycle)} sub="(from recent verified)" />
-                <Metric title="Cleanups" value={fmt(breakdown.cleanup)} sub="(from recent verified)" />
-              </div>
+  return (
+    <section
+      ref={textRef}
+      id="about"
+      className="relative py-20 md:py-32"
+      style={{ background: "var(--sand)" }}
+    >
+      <div className="mx-auto max-w-7xl px-5 md:px-12">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
+          <div className="lg:col-span-7" style={textStyle}>
+            <span
+              className="mb-4 inline-block text-[11px] font-medium uppercase tracking-[0.12em]"
+              style={{ color: "var(--accent2)" }}
+            >
+              About the Initiative
+            </span>
 
-              <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Metric title="Submissions" value={fmt(stats.total)} sub="total submitted" />
-                <Metric title="Verified" value={fmt(stats.approved)} sub="approved actions" />
-                <Metric title="Points" value={fmt(stats.points)} sub="impact points awarded" />
+            <h2
+              className="mb-6 font-serif text-4xl leading-[1.08] md:text-[56px]"
+              style={{ color: "var(--deep)" }}
+            >
+              Real-world environmental action, verified and rewarded.
+            </h2>
+
+            <p
+              className="max-w-[560px] text-[17px] leading-relaxed"
+              style={{ color: "rgba(19,39,29,0.82)" }}
+            >
+              GreenFlare is a community-led initiative promoting tree planting,
+              recycling, and cleanups — with transparent, verifiable impact
+              tracking. Sponsors see real proof. Communities earn points.
+            </p>
+          </div>
+
+          <div className="lg:col-span-5 lg:mt-16" ref={imageRef} style={imageStyle}>
+            <div className="relative">
+              <div className="overflow-hidden rounded-xl">
+                <img
+                  src="/images/community-tree-planting.jpg"
+                  alt="Community tree planting"
+                  className="aspect-[2/3] w-full object-cover transition-transform duration-700 hover:scale-[1.03]"
+                />
               </div>
 
               <div
-                className="mt-5 rounded-xl p-4"
-                style={{ border: `1px solid var(--border)`, background: "var(--panel2)" }}
+                ref={cardRef}
+                style={cardStyle}
+                className="absolute -bottom-6 -left-4 max-w-[240px] rounded-xl p-5 shadow-lg md:-left-8"
+                aria-hidden="true"
               >
-                <div className="text-sm font-semibold">Transparent accountability</div>
-                <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                  Approved actions become trusted records that communities, partners,
-                  and sponsors can review with confidence.
-                </p>
-              </div>
-
-              <div className="mt-4">
                 <div
-                  className="rounded-2xl p-5"
+                  className="rounded-xl p-5"
                   style={{
-                    border: "1px solid rgba(16,185,129,0.22)",
-                    background:
-                      "linear-gradient(135deg, rgba(16,185,129,0.16), rgba(56,189,248,0.10))",
-                    boxShadow: "var(--shadow)",
+                    background: "var(--soft)",
+                    boxShadow: "0 16px 40px rgba(31,58,44,0.12)",
                   }}
                 >
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <div className="text-sm font-semibold">🏆 Points Leaderboard</div>
-                      <p className="mt-1 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                        See top contributors by verified impact. Points help validate the
-                        reward model before sponsor-backed rewards go live.
-                      </p>
-                      <div className="mt-2 text-xs" style={{ color: "var(--muted2)" }}>
-                        Rewards are “coming soon” — current points have no monetary value.
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Link
-                        href="/leaderboard"
-                        className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition"
-                        style={{ background: "var(--accent)", color: "var(--accentText)" }}
-                      >
-                        View Leaderboard
-                      </Link>
-
-                      <Link
-                        href="/submit"
-                        className="inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition"
-                        style={{
-                          border: "1px solid var(--border)",
-                          background: "var(--panel)",
-                          color: "var(--text)",
-                        }}
-                      >
-                        Earn Points
-                      </Link>
-                    </div>
+                  <div className="mb-2 flex items-center gap-2">
+                    <span style={{ color: "var(--deep)" }}>✅</span>
+                    <span
+                      className="text-[16px] font-medium"
+                      style={{ color: "var(--deep)" }}
+                    >
+                      Verified Impact
+                    </span>
                   </div>
-                </div>
-              </div>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="md:col-span-5">
-              <h2 className="text-lg font-semibold">Recent Activity</h2>
-              <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                Latest verified submissions.
-              </p>
-
-              <div className="mt-4 space-y-3">
-                {loading ? (
-                  <>
-                    <SkeletonRow />
-                    <SkeletonRow />
-                    <SkeletonRow />
-                  </>
-                ) : recent.length === 0 ? (
-                  <div
-                    className="rounded-xl p-4 text-sm"
-                    style={{
-                      border: `1px solid var(--border)`,
-                      background: "var(--panel)",
-                      color: "var(--muted)",
-                    }}
+                  <p
+                    className="text-[13px] leading-relaxed"
+                    style={{ color: "rgba(19,39,29,0.72)" }}
                   >
-                    No verified actions yet. Be the first to submit an impact action.
-                  </div>
-                ) : (
-                  recent.map((r) => {
-                    const txUrl = explorerTxUrl(r.chain_tx, r.chain_network);
-
-                    return (
-                      <div
-                        key={r.id}
-                        className="rounded-xl p-4"
-                        style={{ border: "1px solid var(--border)", background: "var(--panel)" }}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-sm font-semibold">{actionLabel(r.action_type)}</div>
-                          <span className="text-xs" style={{ color: "var(--muted2)" }}>
-                            {new Date(r.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-
-                        <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-                          {r.location_cell || "Unknown location"}
-                        </div>
-
-                        <div className="mt-3 flex items-center justify-between gap-3">
-                          <div className="text-[11px]" style={{ color: "var(--muted2)" }}>
-                            Proof record:
-                          </div>
-
-                          {txUrl ? (
-                            <a
-                              href={txUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-lg px-3 py-1.5 text-xs font-semibold transition"
-                              style={{
-                                border: "1px solid var(--border)",
-                                background: "var(--panel2)",
-                                color: "var(--text)",
-                              }}
-                            >
-                              View record ↗
-                            </a>
-                          ) : (
-                            <span className="text-[11px]" style={{ color: "var(--muted2)" }}>
-                              Verified in-app
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </Card>
-
-            {/* Milestones */}
-            <Card className="md:col-span-12">
-              <div className="grid gap-6 md:grid-cols-12 md:items-center">
-                <div className="md:col-span-5">
-                  <h2 className="text-lg font-semibold">Milestones</h2>
-                  <p className="mt-1 text-sm" style={{ color: "var(--muted)" }}>
-                    A clear path to scale with partners, sponsors and stronger verification.
+                    Every approved action becomes a trusted proof record for
+                    accountability and reporting.
                   </p>
-
-                  <div className="mt-4 grid gap-3">
-                    <MilestoneLine
-                      title="Points Target"
-                      now={stats.points}
-                      target={5000}
-                      pct={milestones.pointsPct}
-                    />
-                    <MilestoneLine
-                      title="Verified Actions Target"
-                      now={stats.approved}
-                      target={150}
-                      pct={milestones.actionsPct}
-                    />
-                  </div>
-                </div>
-
-                <div className="md:col-span-7">
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <PhaseCard
-                      title="Phase 1 — MVP"
-                      bullets={["Manual verification", "Proof uploads", "Basic points + tracking"]}
-                      badge="Live"
-                    />
-                    <PhaseCard
-                      title="Phase 2 — Community Verify"
-                      bullets={["Multi-validator checks", "Dispute flow", "Reputation scoring"]}
-                      badge="Next"
-                    />
-                    <PhaseCard
-                      title="Phase 3 — Scale + Partners"
-                      bullets={["Sponsor dashboards", "Rewards pools", "Stronger verification infrastructure"]}
-                      badge="Roadmap"
-                    />
-                  </div>
                 </div>
               </div>
-            </Card>
+            </div>
           </div>
-        </section>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ImpactGridSection() {
+  const { ref: headerRef, style: headerStyle } = useScrollReveal<HTMLDivElement>();
+
+  return (
+    <section
+      id="impact"
+      className="relative py-20 md:py-32"
+      style={{ background: "var(--soft)" }}
+    >
+      <div className="mx-auto max-w-7xl px-5 md:px-12">
+        <div ref={headerRef} style={headerStyle} className="mb-16 text-center">
+          <span
+            className="mb-4 inline-block text-[11px] font-medium uppercase tracking-[0.12em]"
+            style={{ color: "var(--accent2)" }}
+          >
+            Impact Areas
+          </span>
+
+          <h2
+            className="font-serif text-4xl md:text-[36px]"
+            style={{ color: "var(--deep)" }}
+          >
+            Where Change Happens
+          </h2>
+        </div>
+
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
+          {impactCards.map((card, i) => (
+            <ImpactCard key={card.title} {...card} index={i} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ImpactCard({
+  title,
+  image,
+  description,
+  href,
+  index,
+}: {
+  title: string;
+  image: string;
+  description: string;
+  href: string;
+  index: number;
+}) {
+  const { ref, style } = useScrollReveal<HTMLDivElement>();
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        ...style,
+        transitionDelay: `${index * 90}ms`,
+      }}
+      className="group overflow-hidden rounded-xl"
+    >
+      <div
+        className="overflow-hidden rounded-xl border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
+        style={{
+          borderColor: "rgba(19,39,29,0.08)",
+          background: "rgba(216,208,194,0.16)",
+          boxShadow: "0 8px 22px rgba(19,39,29,0.04)",
+        }}
+      >
+        <div className="overflow-hidden">
+          <img
+            src={image}
+            alt={title}
+            className="aspect-video w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+          />
+        </div>
+
+        <div className="p-6">
+          <h3
+            className="mb-2 text-[22px] font-medium"
+            style={{ color: "var(--deep)" }}
+          >
+            {title}
+          </h3>
+
+          <p
+            className="mb-4 text-[15px] leading-relaxed"
+            style={{ color: "rgba(19,39,29,0.70)" }}
+          >
+            {description}
+          </p>
+
+          <Link
+            href={href}
+            className="inline-flex items-center gap-1 text-[15px] font-medium transition-all hover:underline"
+            style={{ color: "var(--accent)" }}
+          >
+            Learn More <span>→</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ----------------- UI components ----------------- */
-
-function ThemeBtn({
-  active,
-  onClick,
-  children,
+function HowItWorksSection({
+  points,
+  actions,
+  submissions,
 }: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  points: number;
+  actions: number;
+  submissions: number;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className="px-3 py-1.5 text-xs font-semibold rounded-xl transition"
-      style={{
-        background: active ? "var(--bg2)" : "transparent",
-        border: active ? "1px solid rgba(16,185,129,0.28)" : "1px solid transparent",
-        color: "var(--text)",
-      }}
-    >
-      {children}
-    </button>
-  );
-}
+  const { ref: headerRef, style: headerStyle } = useScrollReveal<HTMLDivElement>();
+  const { ref: statsRef, style: statsStyle } = useScrollReveal<HTMLDivElement>();
 
-function Panel({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="rounded-2xl p-5"
-      style={{
-        border: "1px solid var(--border)",
-        background: "var(--panel)",
-        boxShadow: "var(--shadow)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
+  const steps = [
+    {
+      num: "01",
+      title: "Do an Action",
+      desc: "Plant a tree, recycle, or clean your community. Every action counts, no matter how small.",
+    },
+    {
+      num: "02",
+      title: "Submit Proof",
+      desc: "Upload proof and location notes through the GreenFlare web app. Quick, simple, transparent.",
+    },
+    {
+      num: "03",
+      title: "Review + Reward",
+      desc: "Verified actions earn points and become trusted impact records for communities, partners, and sponsors.",
+    },
+  ];
 
-function Card({
-  className = "",
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) {
   return (
-    <div
-      className={["rounded-2xl p-6", className].join(" ")}
-      style={{
-        border: "1px solid var(--border)",
-        background: "var(--panel)",
-        boxShadow: "var(--shadow)",
-      }}
+    <section
+      id="how-it-works"
+      className="relative py-20 md:py-32"
+      style={{ background: "var(--sand)" }}
     >
-      {children}
-    </div>
-  );
-}
+      <div className="mx-auto max-w-[960px] px-5 md:px-12">
+        <div ref={headerRef} style={headerStyle} className="mb-16 text-center">
+          <span
+            className="mb-4 inline-block text-[11px] font-medium uppercase tracking-[0.12em]"
+            style={{ color: "var(--accent2)" }}
+          >
+            The Process
+          </span>
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      className="rounded-2xl p-4"
-      style={{
-        border: "1px solid var(--border)",
-        background: "var(--panel)",
-        boxShadow: "var(--shadow)",
-      }}
-    >
-      <div className="text-[11px]" style={{ color: "var(--muted2)" }}>
-        {label}
-      </div>
-      <div className="mt-1 text-lg font-semibold">{value}</div>
-    </div>
-  );
-}
+          <h2
+            className="font-serif text-4xl md:text-[36px]"
+            style={{ color: "var(--deep)" }}
+          >
+            Three Steps to Impact
+          </h2>
+        </div>
 
-function Step({ n, title, desc }: { n: string; title: string; desc: string }) {
-  return (
-    <div
-      className="flex gap-3 rounded-xl p-4"
-      style={{ border: "1px solid var(--border)", background: "var(--panel2)" }}
-    >
-      <div className="w-10 shrink-0">
+        <div className="relative">
+          <div className="absolute left-[16.66%] right-[16.66%] top-6 hidden h-[2px] bg-[rgba(197,139,42,0.25)] md:block" />
+
+          <div className="grid grid-cols-1 gap-12 md:grid-cols-3 md:gap-8">
+            {steps.map((step, i) => (
+              <StepCard key={step.num} {...step} index={i} />
+            ))}
+          </div>
+        </div>
+
         <div
-          className="grid h-9 w-9 place-items-center rounded-xl text-xs font-semibold"
-          style={{
-            border: "1px solid var(--border)",
-            background: "rgba(255,255,255,0.06)",
-            color: "var(--muted)",
-          }}
+          ref={statsRef}
+          style={statsStyle}
+          className="mt-20 border-t pt-8"
+          aria-label="Live stats"
         >
-          {n}
+          <div className="grid grid-cols-3 gap-8 text-center">
+            <div>
+              <span
+                className="block font-serif text-5xl"
+                style={{ color: "var(--deep)" }}
+              >
+                {fmt(points)}
+              </span>
+              <span
+                className="mt-2 block text-[11px] font-medium uppercase tracking-[0.12em]"
+                style={{ color: "var(--accent2)" }}
+              >
+                Points Awarded
+              </span>
+            </div>
+
+            <div>
+              <span
+                className="block font-serif text-5xl"
+                style={{ color: "var(--deep)" }}
+              >
+                {fmt(actions)}
+              </span>
+              <span
+                className="mt-2 block text-[11px] font-medium uppercase tracking-[0.12em]"
+                style={{ color: "var(--accent2)" }}
+              >
+                Verified Actions
+              </span>
+            </div>
+
+            <div>
+              <span
+                className="block font-serif text-5xl"
+                style={{ color: "var(--deep)" }}
+              >
+                {fmt(submissions)}
+              </span>
+              <span
+                className="mt-2 block text-[11px] font-medium uppercase tracking-[0.12em]"
+                style={{ color: "var(--accent2)" }}
+              >
+                Submissions
+              </span>
+            </div>
+          </div>
         </div>
       </div>
-      <div>
-        <div className="text-sm font-semibold">{title}</div>
-        <div className="mt-1 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-          {desc}
-        </div>
-      </div>
-    </div>
+    </section>
   );
 }
 
-function Metric({ title, value, sub }: { title: string; value: string; sub: string }) {
-  return (
-    <div className="rounded-2xl p-4" style={{ border: "1px solid var(--border)", background: "var(--panel2)" }}>
-      <div className="text-sm font-semibold">{title}</div>
-      <div className="mt-1 text-2xl font-semibold" style={{ color: "var(--accent)" }}>
-        {value}
-      </div>
-      <div className="mt-1 text-xs" style={{ color: "var(--muted)" }}>
-        {sub}
-      </div>
-    </div>
-  );
-}
-
-function SkeletonRow() {
-  return (
-    <div className="rounded-xl p-4" style={{ border: "1px solid var(--border)", background: "var(--panel)" }}>
-      <div className="h-4 w-2/3 rounded" style={{ background: "rgba(255,255,255,0.12)" }} />
-      <div className="mt-2 h-3 w-full rounded" style={{ background: "rgba(255,255,255,0.10)" }} />
-    </div>
-  );
-}
-
-function MilestoneLine({
+function StepCard({
+  num,
   title,
-  now,
-  target,
-  pct,
+  desc,
+  index,
 }: {
+  num: string;
   title: string;
-  now: number;
-  target: number;
-  pct: number;
+  desc: string;
+  index: number;
 }) {
+  const { ref, style } = useScrollReveal<HTMLDivElement>();
+
   return (
-    <div className="rounded-xl p-4" style={{ border: "1px solid var(--border)", background: "var(--panel2)" }}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold">{title}</div>
-        <div className="text-xs" style={{ color: "var(--muted)" }}>
-          {fmt(now)} / {fmt(target)}
-        </div>
-      </div>
-      <div className="mt-3 h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.10)" }}>
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--accent)" }} />
-      </div>
-      <div className="mt-2 text-[11px]" style={{ color: "var(--muted2)" }}>
-        {Math.round(pct)}% complete
-      </div>
+    <div
+      ref={ref}
+      style={{
+        ...style,
+        transitionDelay: `${index * 120}ms`,
+      }}
+      className="text-center"
+    >
+      <span
+        className="mb-4 block font-serif text-5xl"
+        style={{ color: "rgba(197,139,42,0.30)" }}
+      >
+        {num}
+      </span>
+
+      <h3
+        className="mb-3 text-[22px] font-medium"
+        style={{ color: "var(--deep)" }}
+      >
+        {title}
+      </h3>
+
+      <p
+        className="mx-auto max-w-[280px] text-[15px] leading-relaxed"
+        style={{ color: "rgba(19,39,29,0.70)" }}
+      >
+        {desc}
+      </p>
     </div>
   );
 }
 
-function PhaseCard({
-  title,
-  bullets,
-  badge,
+function CommunitySection({
+  recent,
+  loading,
 }: {
-  title: string;
-  bullets: string[];
-  badge: string;
+  recent: RecentItem[];
+  loading: boolean;
 }) {
+  const { ref: bannerRef, style: bannerStyle } = useScrollReveal<HTMLDivElement>();
+  const { ref: textRef, style: textStyle } = useScrollReveal<HTMLDivElement>();
+
   return (
-    <div className="rounded-2xl p-5" style={{ border: "1px solid var(--border)", background: "var(--panel2)" }}>
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-sm font-semibold">{title}</div>
-        <span
-          className="rounded-full px-2 py-0.5 text-[11px]"
-          style={{
-            border: "1px solid var(--border)",
-            background: "rgba(255,255,255,0.06)",
-            color: "var(--muted)",
-          }}
+    <section
+      id="community"
+      className="relative py-20 md:py-32"
+      style={{ background: "var(--soft)" }}
+    >
+      <div className="mx-auto max-w-7xl px-5 md:px-12">
+        <div
+          ref={bannerRef}
+          style={bannerStyle}
+          className="relative overflow-hidden rounded-2xl"
         >
-          {badge}
-        </span>
+          <img
+            src="/images/aerial-community-event.jpg"
+            alt="Community environmental event"
+            className="aspect-[16/9] w-full object-cover md:aspect-[21/9]"
+          />
+
+          <div className="absolute inset-0 bg-gradient-to-t from-[rgba(31,58,44,0.74)] via-transparent to-transparent" />
+
+          <div
+            ref={textRef}
+            style={textStyle}
+            className="absolute bottom-6 left-6 max-w-md md:bottom-12 md:left-12"
+          >
+            <h2
+              className="mb-3 font-serif text-3xl md:text-[36px]"
+              style={{ color: "var(--soft)" }}
+            >
+              Join a Growing Movement
+            </h2>
+
+            <p
+              className="mb-6 text-[17px]"
+              style={{ color: "rgba(245,243,234,0.88)" }}
+            >
+              Be part of a more transparent environmental community, starting
+              from campuses and scaling outward.
+            </p>
+
+            <Link
+              href="/leaderboard"
+              className="inline-flex h-12 items-center justify-center rounded-full px-6 text-sm font-medium transition-colors duration-300"
+              style={{
+                background: "var(--accent)",
+                color: "#13271d",
+              }}
+            >
+              View Leaderboard
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-16">
+          <div className="mb-6">
+            <span
+              className="inline-block text-[11px] font-medium uppercase tracking-[0.12em]"
+              style={{ color: "var(--accent2)" }}
+            >
+              Recent Verified Activity
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+            {loading ? (
+              <>
+                <RecentSkeleton />
+                <RecentSkeleton />
+                <RecentSkeleton />
+                <RecentSkeleton />
+              </>
+            ) : recent.length === 0 ? (
+              <div
+                className="rounded-xl border p-6 text-sm lg:col-span-4"
+                style={{
+                  borderColor: "rgba(19,39,29,0.10)",
+                  background: "rgba(255,255,255,0.58)",
+                  color: "var(--muted)",
+                }}
+              >
+                No verified actions yet. Be the first to submit an impact action.
+              </div>
+            ) : (
+              recent.map((item, i) => (
+                <RecentCard key={item.id} item={item} index={i} />
+              ))
+            )}
+          </div>
+        </div>
       </div>
-      <ul className="mt-3 space-y-2 text-sm" style={{ color: "var(--muted)" }}>
-        {bullets.map((b) => (
-          <li key={b} className="flex gap-2">
-            <span className="mt-[6px] h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent)" }} />
-            <span>{b}</span>
-          </li>
-        ))}
-      </ul>
+    </section>
+  );
+}
+
+function RecentCard({
+  item,
+  index,
+}: {
+  item: RecentItem;
+  index: number;
+}) {
+  const { ref, style } = useScrollReveal<HTMLDivElement>();
+  const txUrl = explorerTxUrl(item.chain_tx, item.chain_network);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        ...style,
+        transitionDelay: `${index * 80}ms`,
+      }}
+      className="text-center"
+    >
+      <div
+        className="rounded-2xl border p-5"
+        style={{
+          borderColor: "rgba(19,39,29,0.10)",
+          background: "rgba(255,255,255,0.56)",
+          boxShadow: "0 10px 26px rgba(31,58,44,0.05)",
+        }}
+      >
+        <div
+          className="text-[16px] font-medium"
+          style={{ color: "var(--deep)" }}
+        >
+          {iconForAction(item.action_type)} {actionLabel(item.action_type)}
+        </div>
+
+        <div
+          className="mt-2 text-sm"
+          style={{ color: "rgba(19,39,29,0.62)" }}
+        >
+          {item.location_cell || "Unknown location"}
+        </div>
+
+        <div
+          className="mt-2 text-xs italic"
+          style={{ color: "rgba(19,39,29,0.58)" }}
+        >
+          {new Date(item.created_at).toLocaleDateString()}
+        </div>
+
+        <div className="mt-4">
+          {txUrl ? (
+            <a
+              href={txUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-medium hover:underline"
+              style={{ color: "var(--accent)" }}
+            >
+              View record →
+            </a>
+          ) : (
+            <span
+              className="text-sm"
+              style={{ color: "rgba(19,39,29,0.58)" }}
+            >
+              Verified in-app
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecentSkeleton() {
+  return (
+    <div
+      className="rounded-2xl border p-5"
+      style={{
+        borderColor: "rgba(19,39,29,0.10)",
+        background: "rgba(255,255,255,0.56)",
+      }}
+    >
+      <div
+        className="mx-auto h-5 w-2/3 rounded"
+        style={{ background: "rgba(19,39,29,0.10)" }}
+      />
+      <div
+        className="mx-auto mt-3 h-4 w-1/2 rounded"
+        style={{ background: "rgba(19,39,29,0.08)" }}
+      />
+      <div
+        className="mx-auto mt-4 h-4 w-1/3 rounded"
+        style={{ background: "rgba(19,39,29,0.08)" }}
+      />
     </div>
   );
 }
