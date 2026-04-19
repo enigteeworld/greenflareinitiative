@@ -1,330 +1,190 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-export default function OnboardingPageClient({
-  initialNextPath,
-}: {
-  initialNextPath: string;
-}) {
+type Props = {
+  next: string;
+};
+
+export default function OnboardingPageClient({ next }: Props) {
   const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-
-  const [authUserId, setAuthUserId] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [username, setUsername] = useState("");
   const [campus, setCampus] = useState("University of Benin");
   const [hostel, setHostel] = useState("");
+  const [phone, setPhone] = useState("");
 
-  useEffect(() => {
-    async function loadSessionAndProfile() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
-      if (!session?.user) {
-        router.replace(`/auth?next=${encodeURIComponent(initialNextPath)}`);
-        return;
-      }
-
-      const user = session.user;
-      setAuthUserId(user.id);
-      setEmail(user.email || "");
-      setFullName(user.user_metadata?.full_name || "");
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("auth_user_id", user.id)
-        .maybeSingle();
-
-      if (profile) {
-        setFullName(profile.full_name || user.user_metadata?.full_name || "");
-        setDisplayName(profile.display_name || "");
-        setPhone(profile.phone || "");
-        setCampus(profile.campus || "University of Benin");
-        setHostel(profile.hostel || "");
-
-        if (profile.onboarding_completed) {
-          router.replace(initialNextPath);
-          return;
-        }
-      }
-
-      setLoading(false);
-    }
-
-    loadSessionAndProfile();
-  }, [router, initialNextPath]);
-
-  async function handleSave(e: FormEvent) {
+  async function handleContinue(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
+    setMessage(null);
 
-    if (!authUserId) {
-      setMsg("❌ Missing authenticated user.");
-      return;
-    }
-
-    if (fullName.trim().length < 2) {
-      setMsg("❌ Please enter your full name.");
-      return;
-    }
-
-    if (displayName.trim().length < 2) {
-      setMsg("❌ Please enter a display name.");
+    if (username.trim().length < 2) {
+      setMessage("Please enter a valid username.");
       return;
     }
 
     try {
       setSaving(true);
 
-      const { error } = await supabase.from("profiles").upsert(
-        {
-          auth_user_id: authUserId,
-          email: email.trim(),
-          full_name: fullName.trim(),
-          display_name: displayName.trim(),
-          phone: phone.trim() || null,
-          campus: campus.trim() || null,
-          hostel: hostel.trim() || null,
-          role: "participant",
-          trust_score: 0,
-          onboarding_completed: true,
-        },
-        {
-          onConflict: "auth_user_id",
-        }
-      );
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-      if (error) throw error;
+      if (!user) {
+        router.push("/auth?mode=login&next=/onboarding");
+        return;
+      }
 
-      router.replace(initialNextPath);
-    } catch (err: any) {
-      setMsg(`❌ ${err?.message || "Failed to save profile."}`);
+      const payload = {
+        id: user.id,
+        auth_user_id: user.id,
+        username: username.trim().toLowerCase().replace(/\s+/g, "_"),
+        campus: campus.trim(),
+        hostel: hostel.trim() || null,
+        phone: phone.trim() || null,
+        onboarding_complete: true,
+        onboarding_completed: true,
+      };
+
+      const { error } = await supabase.from("profiles").upsert(payload);
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      router.push(next || "/account");
+      router.refresh();
+    } catch {
+      setMessage("Unable to save onboarding right now.");
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) {
-    return (
-      <div style={{ background: "var(--bg)", color: "var(--text)" }}>
-        <div className="mx-auto max-w-4xl px-4 py-16">
-          <div
-            className="rounded-2xl p-6"
-            style={{
-              border: "1px solid var(--border)",
-              background: "var(--panel)",
-              boxShadow: "var(--shadow)",
-            }}
-          >
-            <div className="text-lg font-semibold">Loading onboarding…</div>
-            <div className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
-              Preparing your GreenFlare profile.
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ background: "var(--bg)", color: "var(--text)" }}>
-      <div className="mx-auto max-w-5xl px-4 py-10 md:py-14">
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <div
-              className="rounded-2xl p-6 md:p-8"
-              style={{
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-                boxShadow: "var(--shadow)",
-              }}
+    <main
+      className="min-h-screen"
+      style={{
+        background: "#f4f1ec",
+        color: "#14532d",
+      }}
+    >
+      <section className="mx-auto w-full max-w-[860px] px-6 pb-16 pt-28 sm:px-8 sm:pb-20 sm:pt-32">
+        <div className="mx-auto max-w-[740px]">
+          <div className="text-center">
+            <h1
+              className="font-serif text-[34px] leading-tight sm:text-[52px]"
+              style={{ color: "#14532d" }}
             >
+              Complete your profile
+            </h1>
+
+            <p
+              className="mx-auto mt-4 max-w-[560px] text-[16px] leading-[1.7] sm:text-[18px]"
+              style={{ color: "#5c5650" }}
+            >
+              This helps GreenFlare connect submissions, QR/bin actions, and future
+              trust score to a real participant profile.
+            </p>
+          </div>
+
+          <form onSubmit={handleContinue} className="mt-12 space-y-6 sm:mt-14 sm:space-y-8">
+            <Field label="Username">
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Pick a username"
+                className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none sm:h-[72px] sm:rounded-[18px] sm:px-7 sm:text-[18px]"
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Campus">
+              <input
+                type="text"
+                value={campus}
+                onChange={(e) => setCampus(e.target.value)}
+                placeholder="Your campus"
+                className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none sm:h-[72px] sm:rounded-[18px] sm:px-7 sm:text-[18px]"
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Hostel (optional)">
+              <input
+                type="text"
+                value={hostel}
+                onChange={(e) => setHostel(e.target.value)}
+                placeholder="e.g. Hall 4"
+                className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none sm:h-[72px] sm:rounded-[18px] sm:px-7 sm:text-[18px]"
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Phone (optional)">
+              <input
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Your phone number"
+                className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none sm:h-[72px] sm:rounded-[18px] sm:px-7 sm:text-[18px]"
+                style={inputStyle}
+              />
+            </Field>
+
+            {message ? (
               <div
-                className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
+                className="rounded-[16px] border px-4 py-3 text-sm sm:rounded-[18px] sm:px-5 sm:py-4 sm:text-base"
                 style={{
-                  borderColor: "var(--border)",
-                  background: "var(--panel2)",
-                  color: "var(--muted)",
+                  background: "#ede7df",
+                  borderColor: "#d8cfc3",
+                  color: "#7f1d1d",
                 }}
               >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{
-                    background: "var(--accent)",
-                    boxShadow: "0 0 18px rgba(52,211,153,0.45)",
-                  }}
-                />
-                One-time onboarding
+                {message}
               </div>
+            ) : null}
 
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight">
-                Complete your GreenFlare profile
-              </h1>
-
-              <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                This profile helps tie your submissions, trust score, and future
-                rewards to a real participant record.
-              </p>
-
-              <form onSubmit={handleSave} className="mt-6 space-y-4">
-                <Field label="Email">
-                  <input
-                    value={email}
-                    disabled
-                    className="w-full rounded-xl px-4 py-3 text-sm outline-none opacity-80"
-                    style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--panel2)",
-                      color: "var(--text)",
-                    }}
-                  />
-                </Field>
-
-                <Field label="Full Name">
-                  <input
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Your full name"
-                    className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                    style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--panel2)",
-                      color: "var(--text)",
-                    }}
-                  />
-                </Field>
-
-                <Field label="Display Name">
-                  <input
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Name shown on leaderboard / dashboard"
-                    className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                    style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--panel2)",
-                      color: "var(--text)",
-                    }}
-                  />
-                </Field>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Field label="Phone (optional)">
-                    <input
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Phone number"
-                      className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                      style={{
-                        border: "1px solid var(--border)",
-                        background: "var(--panel2)",
-                        color: "var(--text)",
-                      }}
-                    />
-                  </Field>
-
-                  <Field label="Hostel / Hall (optional)">
-                    <input
-                      value={hostel}
-                      onChange={(e) => setHostel(e.target.value)}
-                      placeholder="Hall 4, Hall 1, Off-campus..."
-                      className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                      style={{
-                        border: "1px solid var(--border)",
-                        background: "var(--panel2)",
-                        color: "var(--text)",
-                      }}
-                    />
-                  </Field>
-                </div>
-
-                <Field label="Campus">
-                  <input
-                    value={campus}
-                    onChange={(e) => setCampus(e.target.value)}
-                    placeholder="University / campus"
-                    className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-                    style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--panel2)",
-                      color: "var(--text)",
-                    }}
-                  />
-                </Field>
-
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-xl px-5 py-3 text-sm font-semibold transition disabled:opacity-60"
-                  style={{
-                    background: "var(--accent)",
-                    color: "var(--accentText)",
-                  }}
-                >
-                  {saving ? "Saving profile..." : "Continue"}
-                </button>
-
-                {msg ? (
-                  <div
-                    className="text-sm"
-                    style={{
-                      color: msg.startsWith("❌") ? "#ef4444" : "var(--muted)",
-                    }}
-                  >
-                    {msg}
-                  </div>
-                ) : null}
-              </form>
-            </div>
-          </div>
-
-          <div className="lg:col-span-5">
-            <div
-              className="rounded-2xl p-6 md:p-8"
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-16 w-full rounded-[16px] text-[18px] font-medium transition disabled:opacity-70 sm:h-[72px] sm:rounded-[18px] sm:text-[20px]"
               style={{
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-                boxShadow: "var(--shadow)",
+                background: "#0b0b10",
+                color: "#f8f6f2",
               }}
             >
-              <div className="text-lg font-semibold">What this profile unlocks</div>
+              {saving ? "Saving..." : "Continue"}
+            </button>
+          </form>
 
-              <ul className="mt-4 space-y-3 text-sm" style={{ color: "var(--muted)" }}>
-                <li>• Personal dashboard</li>
-                <li>• Trust score and reputation tiers</li>
-                <li>• Bin-linked submission history</li>
-                <li>• Future rewards and sponsor-backed campaigns</li>
-              </ul>
+          <div
+            className="mt-12 rounded-[24px] px-6 py-6 sm:mt-16 sm:rounded-[28px] sm:px-10 sm:py-10"
+            style={{ background: "#eae3db" }}
+          >
+            <h2
+              className="text-[20px] font-semibold sm:text-[24px]"
+              style={{ color: "#14532d" }}
+            >
+              Why onboarding matters
+            </h2>
 
-              <div className="mt-6">
-                <Link
-                  href="/"
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition"
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--panel2)",
-                    color: "var(--text)",
-                  }}
-                >
-                  ← Home
-                </Link>
-              </div>
-            </div>
+            <ul className="mt-5 space-y-4 sm:mt-6 sm:space-y-5">
+              <Bullet>Your submissions become tied to your real participant record.</Bullet>
+              <Bullet>Bin scans can later map cleanly to campus and hostel context.</Bullet>
+              <Bullet>This prepares the system for dashboard, trust score, and rewards.</Bullet>
+            </ul>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
 
@@ -337,10 +197,36 @@ function Field({
 }) {
   return (
     <div>
-      <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+      <label
+        className="mb-3 block text-[18px] font-semibold sm:mb-4 sm:text-[24px]"
+        style={{ color: "#14532d" }}
+      >
         {label}
-      </div>
-      <div className="mt-2">{children}</div>
+      </label>
+      {children}
     </div>
   );
 }
+
+function Bullet({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-4">
+      <span
+        className="mt-2.5 h-3 w-3 shrink-0 rounded-full sm:mt-3 sm:h-4 sm:w-4"
+        style={{ background: "#d3912c" }}
+      />
+      <span
+        className="text-[16px] leading-[1.7] sm:text-[20px] sm:leading-[1.6]"
+        style={{ color: "#5c5650" }}
+      >
+        {children}
+      </span>
+    </li>
+  );
+}
+
+const inputStyle: React.CSSProperties = {
+  background: "#ddd7ce",
+  borderColor: "#cbc2b7",
+  color: "#3f3a35",
+};

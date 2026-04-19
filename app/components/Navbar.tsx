@@ -2,13 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function Navbar() {
+  const pathname = usePathname();
+
   const [open, setOpen] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+
+  const isLightBlendPage = pathname === "/auth" || pathname === "/onboarding";
 
   useEffect(() => {
     const handleScroll = () => {
@@ -45,47 +50,75 @@ export default function Navbar() {
     setOpen(false);
   }
 
-  const headerStyle: React.CSSProperties = scrolled
+  const showSolidNavbar = scrolled;
+  const showBlendNavbar = isLightBlendPage && !scrolled;
+
+  const headerStyle: React.CSSProperties = showSolidNavbar
     ? {
-        background: "rgba(250, 247, 241, 0.94)",
+        background: "rgba(250, 247, 241, 0.96)",
         borderBottom: "1px solid rgba(19,39,29,0.08)",
         backdropFilter: "blur(14px)",
         boxShadow: "0 10px 30px rgba(19,39,29,0.06)",
       }
-    : {
-        background: "rgba(255,255,255,0.04)",
-        borderBottom: "1px solid rgba(245,243,239,0.10)",
-        backdropFilter: "blur(10px)",
-      };
+    : showBlendNavbar
+      ? {
+          background: "rgba(245, 243, 238, 0.78)",
+          borderBottom: "1px solid rgba(19,39,29,0.06)",
+          backdropFilter: "blur(10px)",
+        }
+      : {
+          background: "rgba(255,255,255,0.04)",
+          borderBottom: "1px solid rgba(245,243,239,0.10)",
+          backdropFilter: "blur(10px)",
+        };
 
-  const brandTextColor = scrolled ? "#1F3A2C" : "#F5F3EF";
-  const navTextColor = scrolled ? "rgba(19,39,29,0.82)" : "rgba(245,243,239,0.88)";
-  const menuButtonStyle: React.CSSProperties = scrolled
+  const brandTextColor = showSolidNavbar || showBlendNavbar ? "#1F3A2C" : "#F5F3EF";
+  const navTextColor =
+    showSolidNavbar || showBlendNavbar
+      ? "rgba(19,39,29,0.82)"
+      : "rgba(245,243,239,0.88)";
+
+  const menuButtonStyle: React.CSSProperties = showSolidNavbar
     ? {
         background: "#F5F3EF",
         color: "#1F3A2C",
         border: "1px solid rgba(19,39,29,0.10)",
         boxShadow: "0 8px 18px rgba(19,39,29,0.08)",
       }
-    : {
-        background: "rgba(245,243,239,0.14)",
-        color: "#F5F3EF",
-        border: "1px solid rgba(245,243,239,0.18)",
-        backdropFilter: "blur(10px)",
-      };
+    : showBlendNavbar
+      ? {
+          background: "rgba(255,255,255,0.52)",
+          color: "#1F3A2C",
+          border: "1px solid rgba(19,39,29,0.08)",
+          boxShadow: "0 6px 18px rgba(19,39,29,0.05)",
+          backdropFilter: "blur(10px)",
+        }
+      : {
+          background: "rgba(245,243,239,0.14)",
+          color: "#F5F3EF",
+          border: "1px solid rgba(245,243,239,0.18)",
+          backdropFilter: "blur(10px)",
+        };
 
-  const desktopPillStyle: React.CSSProperties = scrolled
+  const desktopPillStyle: React.CSSProperties = showSolidNavbar
     ? {
         background: "#13271D",
         color: "#F5F3EF",
         border: "1px solid rgba(19,39,29,0.08)",
       }
-    : {
-        background: "rgba(245,243,239,0.08)",
-        color: "#F5F3EF",
-        border: "1px solid rgba(245,243,239,0.16)",
-        backdropFilter: "blur(10px)",
-      };
+    : showBlendNavbar
+      ? {
+          background: "#234833",
+          color: "#F5F3EF",
+          border: "1px solid rgba(19,39,29,0.08)",
+          boxShadow: "0 8px 20px rgba(19,39,29,0.08)",
+        }
+      : {
+          background: "rgba(245,243,239,0.08)",
+          color: "#F5F3EF",
+          border: "1px solid rgba(245,243,239,0.16)",
+          backdropFilter: "blur(10px)",
+        };
 
   return (
     <>
@@ -98,17 +131,21 @@ export default function Navbar() {
             <div
               className="flex h-9 w-9 items-center justify-center rounded-full"
               style={{
-                border: scrolled
-                  ? "1px solid rgba(19,39,29,0.10)"
-                  : "1px solid rgba(245,243,239,0.16)",
-                background: scrolled
-                  ? "rgba(19,39,29,0.04)"
-                  : "rgba(245,243,239,0.06)",
+                border:
+                  showSolidNavbar || showBlendNavbar
+                    ? "1px solid rgba(19,39,29,0.10)"
+                    : "1px solid rgba(245,243,239,0.16)",
+                background:
+                  showSolidNavbar || showBlendNavbar
+                    ? "rgba(19,39,29,0.04)"
+                    : "rgba(245,243,239,0.06)",
               }}
             >
               <span
                 className="text-sm"
-                style={{ color: scrolled ? "#1F3A2C" : "#F5F3EF" }}
+                style={{
+                  color: showSolidNavbar || showBlendNavbar ? "#1F3A2C" : "#F5F3EF",
+                }}
               >
                 ⟲
               </span>
@@ -156,22 +193,7 @@ export default function Navbar() {
                 </button>
               </>
             ) : (
-              <PillLink
-                href="/auth"
-                style={
-                  scrolled
-                    ? {
-                        background: "#13271D",
-                        color: "#F5F3EF",
-                        border: "1px solid rgba(19,39,29,0.08)",
-                      }
-                    : {
-                        background: "rgba(19,39,29,0.90)",
-                        color: "#F5F3EF",
-                        border: "1px solid rgba(245,243,239,0.08)",
-                      }
-                }
-              >
+              <PillLink href="/auth" style={desktopPillStyle}>
                 Log In
               </PillLink>
             )}
@@ -262,24 +284,24 @@ function MobileOverlay({
         backdropFilter: "blur(8px)",
       }}
     >
-      <div className="flex h-full flex-col px-8 pb-10 pt-8">
-        <div className="mb-12 flex items-center justify-end">
+      <div className="flex h-full flex-col px-6 pb-8 pt-6">
+        <div className="mb-8 flex items-center justify-end">
           <button
             type="button"
             onClick={onClose}
             aria-label="Close menu"
-            className="inline-flex h-12 w-12 items-center justify-center rounded-full"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full"
             style={{
               background: "rgba(245,243,239,0.10)",
               color: "#F5F3EF",
               border: "1px solid rgba(245,243,239,0.16)",
             }}
           >
-            <X size={24} strokeWidth={2.2} />
+            <X size={20} />
           </button>
         </div>
 
-        <div className="flex flex-1 flex-col items-center justify-center gap-8 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
           <MobileMenuLink href="#about" onClick={onClose}>
             About
           </MobileMenuLink>
@@ -308,7 +330,7 @@ function MobileOverlay({
               <Link
                 href="/submit"
                 onClick={onClose}
-                className="inline-flex h-14 w-full items-center justify-center rounded-full px-8 text-lg font-medium"
+                className="inline-flex h-12 w-full items-center justify-center rounded-full text-base font-medium"
                 style={{
                   background: "#D9952C",
                   color: "#13271D",
@@ -323,7 +345,7 @@ function MobileOverlay({
                   await onLogout();
                   onClose();
                 }}
-                className="inline-flex h-14 w-full items-center justify-center rounded-full px-8 text-lg font-medium"
+                className="inline-flex h-12 w-full items-center justify-center rounded-full text-base font-medium"
                 style={{
                   background: "rgba(245,243,239,0.10)",
                   color: "#F5F3EF",
@@ -337,7 +359,7 @@ function MobileOverlay({
             <Link
               href="/auth"
               onClick={onClose}
-              className="inline-flex h-14 w-full items-center justify-center rounded-full px-8 text-lg font-medium"
+              className="inline-flex h-12 w-full items-center justify-center rounded-full text-base font-medium"
               style={{
                 background: "#D9952C",
                 color: "#13271D",
@@ -363,24 +385,19 @@ function MobileMenuLink({
 }) {
   const isAnchor = href.startsWith("#");
 
+  const baseClass =
+    "font-serif text-[28px] sm:text-[32px] leading-tight tracking-[-0.02em] text-[#F5F3EF] transition-opacity duration-200 hover:opacity-80";
+
   if (isAnchor) {
     return (
-      <a
-        href={href}
-        onClick={onClick}
-        className="font-serif text-[48px] leading-none tracking-[-0.03em] text-[#F5F3EF] transition-opacity duration-200 hover:opacity-80"
-      >
+      <a href={href} onClick={onClick} className={baseClass}>
         {children}
       </a>
     );
   }
 
   return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className="font-serif text-[48px] leading-none tracking-[-0.03em] text-[#F5F3EF] transition-opacity duration-200 hover:opacity-80"
-    >
+    <Link href={href} onClick={onClick} className={baseClass}>
       {children}
     </Link>
   );

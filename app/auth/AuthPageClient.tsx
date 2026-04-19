@@ -1,210 +1,292 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 type AuthMode = "login" | "signup";
 
-export default function AuthPageClient({
-  initialNextPath,
-  initialMode,
-}: {
-  initialNextPath: string;
-  initialMode: AuthMode;
-}) {
+type ProfileRow = {
+  onboarding_complete?: boolean | null;
+};
+
+const infoItems = [
+  "First-time users complete onboarding once.",
+  "Returning users go straight to their next page.",
+  "QR/bin submissions can now be tied to real user identity.",
+  "This unlocks future trust score, dashboard, and reward logic.",
+];
+
+export default function AuthPageClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [mode, setMode] = useState<AuthMode>(
-    initialMode === "signup" ? "signup" : "login"
-  );
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const next = useMemo(() => {
+    const raw = searchParams.get("next") || "/account";
+    return raw.startsWith("/") ? raw : "/account";
+  }, [searchParams]);
 
-  const [loading, setLoading] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [formData, setFormData] = useState({
+    fullName: "",
+    email: "",
+    password: "",
+  });
 
-  const emailOk = useMemo(() => /\S+@\S+\.\S+/.test(email.trim()), [email]);
-  const passwordOk = useMemo(() => password.trim().length >= 6, [password]);
+  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState("");
 
-  async function routeAfterAuth(userId: string) {
-    const { data: profile } = await supabase
+  function switchMode(nextMode: AuthMode) {
+    setMode(nextMode);
+    setMsg("");
+    setFormData((prev) => ({
+      ...prev,
+      password: "",
+    }));
+  }
+
+  async function upsertProfile(args: {
+    userId: string;
+    fullName: string;
+    email: string;
+  }) {
+    const { userId, fullName, email } = args;
+
+    const { error } = await supabase.from("profiles").upsert({
+      id: userId,
+      auth_user_id: userId,
+      full_name: fullName,
+      email,
+      onboarding_complete: false,
+    });
+
+    if (error) {
+      throw error;
+    }
+  }
+
+  async function getProfile(userId: string): Promise<ProfileRow | null> {
+    const byAuthUserId = await supabase
       .from("profiles")
-      .select("id, onboarding_completed")
+      .select("onboarding_complete")
       .eq("auth_user_id", userId)
       .maybeSingle();
 
-    if (!profile || !profile.onboarding_completed) {
-      router.replace(`/onboarding?next=${encodeURIComponent(initialNextPath)}`);
-      return;
+    if (byAuthUserId.error) {
+      throw byAuthUserId.error;
     }
 
-    router.replace(initialNextPath);
+    if (byAuthUserId.data) {
+      return byAuthUserId.data as ProfileRow;
+    }
+
+    const byId = await supabase
+      .from("profiles")
+      .select("onboarding_complete")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (byId.error) {
+      throw byId.error;
+    }
+
+    if (byId.data) {
+      return byId.data as ProfileRow;
+    }
+
+    return null;
   }
 
-  useEffect(() => {
-    async function checkSession() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session?.user) {
-        await routeAfterAuth(session.user.id);
-      }
-    }
-
-    checkSession();
-  }, []);
-
-  async function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
-
-    if (!emailOk) {
-      setMsg("❌ Please enter a valid email address.");
-      return;
-    }
-
-    if (!passwordOk) {
-      setMsg("❌ Password must be at least 6 characters.");
-      return;
-    }
-
-    if (mode === "signup" && fullName.trim().length < 2) {
-      setMsg("❌ Please enter your full name.");
-      return;
-    }
+    setMsg("");
+    setSubmitting(true);
 
     try {
-      setLoading(true);
+      const email = formData.email.trim().toLowerCase();
+      const password = formData.password;
+      const fullName = formData.fullName.trim();
+
+      if (!email) {
+        throw new Error("Please enter your email.");
+      }
+
+      if (!password) {
+        throw new Error("Please enter your password.");
+      }
+
+      if (password.length < 6) {
+        throw new Error("Password must be at least 6 characters.");
+      }
 
       if (mode === "signup") {
+        if (!fullName) {
+          throw new Error("Please enter your full name.");
+        }
+
         const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password: password.trim(),
+          email,
+          password,
           options: {
             data: {
-              full_name: fullName.trim(),
+              full_name: fullName,
             },
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
 
-        if (data.user && data.session) {
-          await routeAfterAuth(data.user.id);
+        const userId = data.user?.id;
+        const session = data.session;
+
+        if (userId) {
+          await upsertProfile({
+            userId,
+            fullName,
+            email,
+          });
+        }
+
+        if (!session) {
+          setMsg("Account created. Please check your email to confirm your account.");
           return;
         }
 
-        setMsg(
-          "✅ Account created. Check your email to confirm your account before logging in."
-        );
+        router.push(`/onboarding?next=${encodeURIComponent(next)}`);
         return;
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password: password.trim(),
+        email,
+        password,
       });
 
-      if (error) throw error;
-
-      if (data.user) {
-        await routeAfterAuth(data.user.id);
+      if (error) {
+        throw error;
       }
-    } catch (err: any) {
-      setMsg(`❌ ${err?.message || "Authentication failed."}`);
+
+      const userId = data.user?.id;
+
+      if (!userId) {
+        router.push(next);
+        return;
+      }
+
+      const profile = await getProfile(userId);
+      const hasCompletedOnboarding = profile?.onboarding_complete === true;
+
+      if (!hasCompletedOnboarding) {
+        router.push(`/onboarding?next=${encodeURIComponent(next)}`);
+        return;
+      }
+
+      router.push(next);
+    } catch (error: any) {
+      setMsg(error?.message || "Something went wrong.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   }
 
   return (
-    <div style={{ background: "var(--bg)", color: "var(--text)" }}>
-      <div className="mx-auto max-w-5xl px-4 py-10 md:py-14">
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="lg:col-span-6">
+    <>
+      <section className="min-h-screen bg-[#f5f3ee]">
+        <div className="flex min-h-screen flex-col md:flex-row">
+          <div className="relative hidden md:block md:w-1/2">
+            <Image
+              src="/images/recycling-thumb.jpg"
+              alt="Recycling station"
+              fill
+              priority
+              className="object-cover"
+            />
+
             <div
-              className="rounded-2xl p-6 md:p-8"
+              className="absolute inset-0"
               style={{
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-                boxShadow: "var(--shadow)",
+                background:
+                  "linear-gradient(180deg, rgba(234,208,138,0.18) 0%, rgba(245,243,238,0.06) 42%, rgba(245,243,238,0.12) 100%)",
+              }}
+            />
+
+            <div
+              className="absolute inset-y-0 right-0 w-[38%]"
+              style={{
+                background:
+                  "linear-gradient(to right, rgba(245,243,238,0) 0%, rgba(245,243,238,0.82) 58%, rgba(245,243,238,0.97) 100%)",
+              }}
+            />
+
+            <div
+              className="absolute inset-x-0 top-0 h-32"
+              style={{
+                background:
+                  "linear-gradient(to bottom, rgba(245,243,238,0.18) 0%, rgba(245,243,238,0) 100%)",
+              }}
+            />
+          </div>
+
+          <div className="flex flex-1 items-start justify-center px-6 pb-10 pt-28 md:items-center md:px-8 md:pb-6 md:pt-24">
+            <div
+              className="w-full max-w-[560px] md:max-w-[400px]"
+              style={{
+                animation:
+                  "fadeInRight 0.8s cubic-bezier(0.25, 0.1, 0.25, 1) 0.2s both",
               }}
             >
-              <div
-                className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs"
-                style={{
-                  borderColor: "var(--border)",
-                  background: "var(--panel2)",
-                  color: "var(--muted)",
-                }}
-              >
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{
-                    background: "var(--accent)",
-                    boxShadow: "0 0 18px rgba(52,211,153,0.45)",
-                  }}
-                />
-                GreenFlare account access
-              </div>
-
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight">
-                {mode === "login" ? "Log in to continue" : "Create your account"}
-              </h1>
-
-              <p className="mt-2 text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-                Designated bin submissions, trust scoring, dashboard access, and
-                future rewards all work better with a real participant account.
-              </p>
-
-              <div
-                className="mt-5 inline-flex rounded-2xl border p-1"
-                style={{
-                  borderColor: "var(--border)",
-                  background: "var(--panel2)",
-                }}
-              >
+              <div className="mb-10 flex items-center justify-center gap-12">
                 <button
                   type="button"
-                  onClick={() => setMode("login")}
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition"
-                  style={{
-                    background: mode === "login" ? "var(--bg2)" : "transparent",
-                    color: "var(--text)",
-                  }}
+                  onClick={() => switchMode("login")}
+                  className={`relative pb-3 text-[16px] font-medium transition-all duration-200 sm:text-[17px] ${
+                    mode === "login"
+                      ? "text-[#0f5132]"
+                      : "text-[#0f5132]/45 hover:text-[#0f5132]"
+                  }`}
                 >
-                  Log in
+                  Log In
+                  {mode === "login" ? (
+                    <span className="absolute bottom-0 left-1/2 h-[3px] w-[64px] -translate-x-1/2 rounded-full bg-[#d49333]" />
+                  ) : null}
                 </button>
 
                 <button
                   type="button"
-                  onClick={() => setMode("signup")}
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition"
-                  style={{
-                    background: mode === "signup" ? "var(--bg2)" : "transparent",
-                    color: "var(--text)",
-                  }}
+                  onClick={() => switchMode("signup")}
+                  className={`relative pb-3 text-[16px] font-medium transition-all duration-200 sm:text-[17px] ${
+                    mode === "signup"
+                      ? "text-[#0f5132]"
+                      : "text-[#0f5132]/45 hover:text-[#0f5132]"
+                  }`}
                 >
-                  Sign up
+                  Sign Up
+                  {mode === "signup" ? (
+                    <span className="absolute bottom-0 left-1/2 h-[3px] w-[82px] -translate-x-1/2 rounded-full bg-[#d49333]" />
+                  ) : null}
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-5">
                 {mode === "signup" ? (
                   <Field label="Full Name">
                     <input
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      type="text"
                       placeholder="Your full name"
-                      className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                      value={formData.fullName}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          fullName: e.target.value,
+                        }))
+                      }
+                      className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none transition"
                       style={{
-                        border: "1px solid var(--border)",
-                        background: "var(--panel2)",
-                        color: "var(--text)",
+                        background: "#ded7ce",
+                        borderColor: "#cfc6bc",
+                        color: "#173126",
                       }}
                     />
                   </Field>
@@ -213,14 +295,19 @@ export default function AuthPageClient({
                 <Field label="Email">
                   <input
                     type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
+                    className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none transition"
                     style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--panel2)",
-                      color: "var(--text)",
+                      background: "#dde6f2",
+                      borderColor: "#c7cfd8",
+                      color: "#173126",
                     }}
                   />
                 </Field>
@@ -228,98 +315,93 @@ export default function AuthPageClient({
                 <Field label="Password">
                   <input
                     type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="At least 6 characters"
-                    className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        password: e.target.value,
+                      }))
+                    }
+                    className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none transition"
                     style={{
-                      border: "1px solid var(--border)",
-                      background: "var(--panel2)",
-                      color: "var(--text)",
+                      background: "#dde6f2",
+                      borderColor: "#c7cfd8",
+                      color: "#173126",
                     }}
                   />
                 </Field>
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="rounded-xl px-5 py-3 text-sm font-semibold transition disabled:opacity-60"
+                  disabled={submitting}
+                  className="inline-flex h-16 w-full items-center justify-center rounded-[18px] text-[18px] font-medium transition disabled:opacity-60"
                   style={{
-                    background: "var(--accent)",
-                    color: "var(--accentText)",
+                    background: "#0b101b",
+                    color: "#f5f3ee",
                   }}
                 >
-                  {loading
-                    ? mode === "login"
-                      ? "Logging in..."
-                      : "Creating account..."
-                    : mode === "login"
-                    ? "Log In"
-                    : "Create Account"}
+                  {submitting
+                    ? "Please wait..."
+                    : mode === "signup"
+                      ? "Create Account"
+                      : "Log In"}
                 </button>
 
                 {msg ? (
                   <div
-                    className="text-sm"
-                    style={{
-                      color: msg.startsWith("❌") ? "#ef4444" : "var(--muted)",
-                    }}
+                    className={`text-center text-sm ${
+                      msg.toLowerCase().includes("check your email")
+                        ? "text-[#0f5132]"
+                        : "text-red-600"
+                    }`}
                   >
                     {msg}
                   </div>
                 ) : null}
               </form>
-            </div>
-          </div>
 
-          <div className="lg:col-span-6">
-            <div
-              className="rounded-2xl p-6 md:p-8"
-              style={{
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-                boxShadow: "var(--shadow)",
-              }}
-            >
-              <div className="text-lg font-semibold">What happens after login?</div>
-
-              <ul className="mt-4 space-y-3 text-sm" style={{ color: "var(--muted)" }}>
-                <li>• First-time users complete onboarding once.</li>
-                <li>• Returning users go straight to their next page.</li>
-                <li>• QR/bin submissions can now be tied to real user identity.</li>
-                <li>• This unlocks future trust score, dashboard, and reward logic.</li>
-              </ul>
-
-              <div className="mt-6 flex gap-2">
-                <Link
-                  href="/"
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition"
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--panel2)",
-                    color: "var(--text)",
-                  }}
+              <div
+                className="mt-12 rounded-[24px] border p-8"
+                style={{
+                  background: "#e7dfd5",
+                  borderColor: "#ddd3c8",
+                }}
+              >
+                <h3
+                  className="text-[20px] font-medium sm:text-[21px]"
+                  style={{ color: "#0f5132" }}
                 >
-                  ← Home
-                </Link>
+                  What happens after login?
+                </h3>
 
-                <Link
-                  href="/submit"
-                  className="rounded-xl px-4 py-2 text-sm font-semibold transition"
-                  style={{
-                    border: "1px solid var(--border)",
-                    background: "var(--panel2)",
-                    color: "var(--text)",
-                  }}
-                >
-                  Open Submit
-                </Link>
+                <ul className="mt-5 space-y-4 text-[16px] leading-relaxed text-[rgba(23,49,38,0.78)]">
+                  {infoItems.map((item) => (
+                    <li key={item} className="flex gap-4">
+                      <span className="mt-[10px] h-3 w-3 shrink-0 rounded-full bg-[#d49333]" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <style jsx global>{`
+        @keyframes fadeInRight {
+          from {
+            opacity: 0;
+            transform: translateX(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
+        }
+      `}</style>
+    </>
   );
 }
 
@@ -331,11 +413,9 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
-      <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-        {label}
-      </div>
-      <div className="mt-2">{children}</div>
-    </div>
+    <label className="block">
+      <div className="mb-3 text-[18px] font-semibold text-[#1f5a3b]">{label}</div>
+      {children}
+    </label>
   );
 }

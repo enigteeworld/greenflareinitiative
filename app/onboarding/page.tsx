@@ -6,11 +6,7 @@ export default async function OnboardingPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const params = await searchParams;
+  const next = params.next || "/account";
 
-  const nextPath =
-    typeof params.next === "string" && params.next.trim()
-      ? params.next
-      : "/account";
-
-  return <OnboardingPageClient initialNextPath={nextPath} />;
+  return <OnboardingPageClient next={next} />;
 }
