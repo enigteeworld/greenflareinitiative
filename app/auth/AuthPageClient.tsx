@@ -7,10 +7,6 @@ import { supabase } from "@/lib/supabaseClient";
 
 type AuthMode = "login" | "signup";
 
-type ProfileRow = {
-  onboarding_complete?: boolean | null;
-};
-
 const infoItems = [
   "First-time users complete onboarding once.",
   "Returning users go straight to their next page.",
@@ -22,10 +18,7 @@ export default function AuthPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const next = useMemo(() => {
-    const raw = searchParams.get("next") || "/account";
-    return raw.startsWith("/") ? raw : "/account";
-  }, [searchParams]);
+  const next = useMemo(() => searchParams.get("next") || "/account", [searchParams]);
 
   const [mode, setMode] = useState<AuthMode>("login");
   const [formData, setFormData] = useState({
@@ -37,122 +30,41 @@ export default function AuthPageClient() {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState("");
 
-  function switchMode(nextMode: AuthMode) {
-    setMode(nextMode);
-    setMsg("");
-    setFormData((prev) => ({
-      ...prev,
-      password: "",
-    }));
-  }
-
-  async function upsertProfile(args: {
-    userId: string;
-    fullName: string;
-    email: string;
-  }) {
-    const { userId, fullName, email } = args;
-
-    const { error } = await supabase.from("profiles").upsert({
-      id: userId,
-      auth_user_id: userId,
-      full_name: fullName,
-      email,
-      onboarding_complete: false,
-    });
-
-    if (error) {
-      throw error;
-    }
-  }
-
-  async function getProfile(userId: string): Promise<ProfileRow | null> {
-    const byAuthUserId = await supabase
-      .from("profiles")
-      .select("onboarding_complete")
-      .eq("auth_user_id", userId)
-      .maybeSingle();
-
-    if (byAuthUserId.error) {
-      throw byAuthUserId.error;
-    }
-
-    if (byAuthUserId.data) {
-      return byAuthUserId.data as ProfileRow;
-    }
-
-    const byId = await supabase
-      .from("profiles")
-      .select("onboarding_complete")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (byId.error) {
-      throw byId.error;
-    }
-
-    if (byId.data) {
-      return byId.data as ProfileRow;
-    }
-
-    return null;
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setMsg("");
     setSubmitting(true);
 
     try {
-      const email = formData.email.trim().toLowerCase();
-      const password = formData.password;
-      const fullName = formData.fullName.trim();
-
-      if (!email) {
-        throw new Error("Please enter your email.");
-      }
-
-      if (!password) {
-        throw new Error("Please enter your password.");
-      }
-
-      if (password.length < 6) {
-        throw new Error("Password must be at least 6 characters.");
-      }
-
       if (mode === "signup") {
-        if (!fullName) {
+        if (!formData.fullName.trim()) {
           throw new Error("Please enter your full name.");
         }
 
         const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
+          email: formData.email.trim(),
+          password: formData.password,
           options: {
             data: {
-              full_name: fullName,
+              full_name: formData.fullName.trim(),
             },
           },
         });
 
-        if (error) {
-          throw error;
-        }
+        if (error) throw error;
 
         const userId = data.user?.id;
-        const session = data.session;
 
         if (userId) {
-          await upsertProfile({
-            userId,
-            fullName,
-            email,
+          const { error: profileError } = await supabase.from("profiles").upsert({
+            id: userId,
+            auth_user_id: userId,
+            full_name: formData.fullName.trim(),
+            email: formData.email.trim().toLowerCase(),
+            onboarding_completed: false,
           });
-        }
 
-        if (!session) {
-          setMsg("Account created. Please check your email to confirm your account.");
-          return;
+          if (profileError) throw profileError;
         }
 
         router.push(`/onboarding?next=${encodeURIComponent(next)}`);
@@ -160,13 +72,11 @@ export default function AuthPageClient() {
       }
 
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: formData.email.trim(),
+        password: formData.password,
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       const userId = data.user?.id;
 
@@ -175,8 +85,35 @@ export default function AuthPageClient() {
         return;
       }
 
-      const profile = await getProfile(userId);
-      const hasCompletedOnboarding = profile?.onboarding_complete === true;
+      let profile:
+        | { onboarding_completed?: boolean | null }
+        | null = null;
+
+      const byAuthUserId = await supabase
+        .from("profiles")
+        .select("onboarding_completed")
+        .eq("auth_user_id", userId)
+        .maybeSingle();
+
+      if (byAuthUserId.error) throw byAuthUserId.error;
+
+      if (byAuthUserId.data) {
+        profile = byAuthUserId.data;
+      } else {
+        const byId = await supabase
+          .from("profiles")
+          .select("onboarding_completed")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (byId.error) throw byId.error;
+
+        if (byId.data) {
+          profile = byId.data;
+        }
+      }
+
+      const hasCompletedOnboarding = profile?.onboarding_completed === true;
 
       if (!hasCompletedOnboarding) {
         router.push(`/onboarding?next=${encodeURIComponent(next)}`);
@@ -240,7 +177,10 @@ export default function AuthPageClient() {
               <div className="mb-10 flex items-center justify-center gap-12">
                 <button
                   type="button"
-                  onClick={() => switchMode("login")}
+                  onClick={() => {
+                    setMode("login");
+                    setMsg("");
+                  }}
                   className={`relative pb-3 text-[16px] font-medium transition-all duration-200 sm:text-[17px] ${
                     mode === "login"
                       ? "text-[#0f5132]"
@@ -255,7 +195,10 @@ export default function AuthPageClient() {
 
                 <button
                   type="button"
-                  onClick={() => switchMode("signup")}
+                  onClick={() => {
+                    setMode("signup");
+                    setMsg("");
+                  }}
                   className={`relative pb-3 text-[16px] font-medium transition-all duration-200 sm:text-[17px] ${
                     mode === "signup"
                       ? "text-[#0f5132]"
@@ -277,10 +220,7 @@ export default function AuthPageClient() {
                       placeholder="Your full name"
                       value={formData.fullName}
                       onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          fullName: e.target.value,
-                        }))
+                        setFormData((p) => ({ ...p, fullName: e.target.value }))
                       }
                       className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none transition"
                       style={{
@@ -298,10 +238,7 @@ export default function AuthPageClient() {
                     placeholder="you@example.com"
                     value={formData.email}
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        email: e.target.value,
-                      }))
+                      setFormData((p) => ({ ...p, email: e.target.value }))
                     }
                     className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none transition"
                     style={{
@@ -318,10 +255,7 @@ export default function AuthPageClient() {
                     placeholder="At least 6 characters"
                     value={formData.password}
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        password: e.target.value,
-                      }))
+                      setFormData((p) => ({ ...p, password: e.target.value }))
                     }
                     className="h-16 w-full rounded-[16px] border px-6 text-[17px] outline-none transition"
                     style={{
@@ -344,20 +278,12 @@ export default function AuthPageClient() {
                   {submitting
                     ? "Please wait..."
                     : mode === "signup"
-                      ? "Create Account"
-                      : "Log In"}
+                    ? "Create Account"
+                    : "Log In"}
                 </button>
 
                 {msg ? (
-                  <div
-                    className={`text-center text-sm ${
-                      msg.toLowerCase().includes("check your email")
-                        ? "text-[#0f5132]"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {msg}
-                  </div>
+                  <div className="text-center text-sm text-red-600">{msg}</div>
                 ) : null}
               </form>
 

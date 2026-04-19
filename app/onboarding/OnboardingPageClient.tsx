@@ -47,7 +47,6 @@ export default function OnboardingPageClient({ next }: Props) {
         campus: campus.trim(),
         hostel: hostel.trim() || null,
         phone: phone.trim() || null,
-        onboarding_complete: true,
         onboarding_completed: true,
       };
 

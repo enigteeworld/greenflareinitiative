@@ -12,12 +12,12 @@ type Profile = {
   email: string | null;
   full_name: string | null;
   display_name: string | null;
+  username: string | null;
   phone: string | null;
   campus: string | null;
   hostel: string | null;
   role: string | null;
   trust_score: number | null;
-  onboarding_complete: boolean | null;
   onboarding_completed: boolean | null;
 };
 
@@ -70,8 +70,7 @@ export default function AccountPage() {
         }
       }
 
-      const hasCompletedOnboarding =
-        data?.onboarding_completed === true || data?.onboarding_complete === true;
+      const hasCompletedOnboarding = data?.onboarding_completed === true;
 
       if (!data || !hasCompletedOnboarding) {
         router.replace("/onboarding?next=/account");
@@ -95,7 +94,7 @@ export default function AccountPage() {
       <div className="min-h-screen bg-[#f5f3ee] text-[#173126]">
         <div className="mx-auto max-w-6xl px-5 pb-20 pt-32 md:px-12">
           <div className="rounded-xl border border-[rgba(23,49,38,0.08)] bg-[#fcfaf7] p-6 shadow-sm">
-            <div className="text-lg font-semibold">Loading account…</div>
+            <div className="text-lg font-semibold">Loading account...</div>
           </div>
         </div>
       </div>
@@ -104,7 +103,7 @@ export default function AccountPage() {
 
   const profileData = [
     { label: "Full Name", value: profile?.full_name || "Not set" },
-    { label: "Display Name", value: profile?.display_name || "Not set" },
+    { label: "Display Name", value: profile?.display_name || profile?.username || "Not set" },
     { label: "Email", value: profile?.email || email || "Not set" },
     { label: "Phone", value: profile?.phone || "Not set" },
     { label: "Campus", value: profile?.campus || "Not set" },
