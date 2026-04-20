@@ -1,11 +1,26 @@
 "use client";
 
+import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 type Props = {
   next: string;
+};
+
+type ExistingProfile = {
+  id: string;
+  auth_user_id: string | null;
+  email: string | null;
+  full_name: string | null;
+  username: string | null;
+  campus: string | null;
+  hostel: string | null;
+  phone: string | null;
+  role: string | null;
+  trust_score: number | null;
+  onboarding_completed: boolean | null;
 };
 
 export default function OnboardingPageClient({ next }: Props) {
@@ -19,11 +34,13 @@ export default function OnboardingPageClient({ next }: Props) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function handleContinue(e: React.FormEvent) {
+  async function handleContinue(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setMessage(null);
 
-    if (username.trim().length < 2) {
+    const normalizedUsername = username.trim().toLowerCase().replace(/\s+/g, "_");
+
+    if (normalizedUsername.length < 2) {
       setMessage("Please enter a valid username.");
       return;
     }
@@ -33,34 +50,58 @@ export default function OnboardingPageClient({ next }: Props) {
 
       const {
         data: { user },
+        error: userError,
       } = await supabase.auth.getUser();
 
+      if (userError) {
+        throw new Error(userError.message);
+      }
+
       if (!user) {
-        router.push("/auth?mode=login&next=/onboarding");
+        router.push(`/auth?mode=login&next=${encodeURIComponent(next || "/account")}`);
         return;
+      }
+
+      const { data: existingProfile, error: existingProfileError } = await supabase
+        .from("profiles")
+        .select(
+          "id, auth_user_id, email, full_name, username, campus, hostel, phone, role, trust_score, onboarding_completed"
+        )
+        .eq("id", user.id)
+        .maybeSingle<ExistingProfile>();
+
+      if (existingProfileError) {
+        throw new Error(existingProfileError.message);
       }
 
       const payload = {
         id: user.id,
         auth_user_id: user.id,
-        username: username.trim().toLowerCase().replace(/\s+/g, "_"),
+        email: existingProfile?.email ?? user.email ?? null,
+        full_name:
+          existingProfile?.full_name ??
+          ((user.user_metadata?.full_name as string | undefined) || null),
+        username: normalizedUsername,
         campus: campus.trim(),
         hostel: hostel.trim() || null,
         phone: phone.trim() || null,
+        role: existingProfile?.role ?? "participant",
+        trust_score: existingProfile?.trust_score ?? 0,
         onboarding_completed: true,
       };
 
-      const { error } = await supabase.from("profiles").upsert(payload);
+      const { error: upsertError } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" });
 
-      if (error) {
-        setMessage(error.message);
-        return;
+      if (upsertError) {
+        throw new Error(upsertError.message);
       }
 
       router.push(next || "/account");
       router.refresh();
-    } catch {
-      setMessage("Unable to save onboarding right now.");
+    } catch (error: any) {
+      setMessage(error?.message || "Unable to save onboarding right now.");
     } finally {
       setSaving(false);
     }
@@ -93,7 +134,10 @@ export default function OnboardingPageClient({ next }: Props) {
             </p>
           </div>
 
-          <form onSubmit={handleContinue} className="mt-12 space-y-6 sm:mt-14 sm:space-y-8">
+          <form
+            onSubmit={handleContinue}
+            className="mt-12 space-y-6 sm:mt-14 sm:space-y-8"
+          >
             <Field label="Username">
               <input
                 type="text"
@@ -192,7 +236,7 @@ function Field({
   children,
 }: {
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <div>
@@ -207,7 +251,7 @@ function Field({
   );
 }
 
-function Bullet({ children }: { children: React.ReactNode }) {
+function Bullet({ children }: { children: ReactNode }) {
   return (
     <li className="flex items-start gap-4">
       <span
@@ -224,7 +268,7 @@ function Bullet({ children }: { children: React.ReactNode }) {
   );
 }
 
-const inputStyle: React.CSSProperties = {
+const inputStyle: CSSProperties = {
   background: "#ddd7ce",
   borderColor: "#cbc2b7",
   color: "#3f3a35",
