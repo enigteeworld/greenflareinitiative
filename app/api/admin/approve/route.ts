@@ -1,0 +1,1 @@
+import {NextResponse} from 'next/server';export async function POST(){return NextResponse.json({error:'Legacy blockchain approvals are disabled for the GreenFlare pilot.'},{status:410})}

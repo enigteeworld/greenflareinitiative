@@ -1,0 +1,1 @@
+import {NextResponse} from 'next/server';export async function POST(){return NextResponse.json({error:'Legacy anonymous submissions are retired. Sign in and use /scan.'},{status:410})}

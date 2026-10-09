@@ -1,0 +1,12 @@
+import type {SVGProps} from 'react';
+/** Circular progress/renewal mark. No botanical or leaf imagery. */
+export default function BrandMark(props:SVGProps<SVGSVGElement>){
+ return <svg viewBox="0 0 64 64" fill="none" role="img" aria-label="GreenFlare circular progress symbol" {...props}>
+  <path d="M31 5C19 5 9 13 6 23c8-5 17-5 24 1 3-8 3-13 1-19Z" fill="#287953"/>
+  <path d="M57 23C54 12 46 6 36 5c4 7 5 15 0 23 8 3 15 2 21-5Z" fill="#85ad64"/>
+  <path d="M46 56c10-5 15-15 14-25-6 6-13 9-22 6-2 8 1 15 8 19Z" fill="#2c916b"/>
+  <path d="M12 50c8 9 18 12 28 8-8-3-13-10-13-19-9 1-13 5-15 11Z" fill="#0e5b47"/>
+  <path d="M5 29c-3 12 1 21 8 27 0-9 4-17 12-22-4-7-11-10-20-5Z" fill="#45906d"/>
+  <path d="m32 19 4.2 9.8L46 33l-9.8 4.2L32 47l-4.2-9.8L18 33l9.8-4.2L32 19Z" fill="#f9faf5"/>
+ </svg>
+}

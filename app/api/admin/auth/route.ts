@@ -1,0 +1,1 @@
+import {NextResponse} from 'next/server';export async function POST(){return NextResponse.json({error:'Password-only admin access retired. Sign in with a verified, authorized account.'},{status:410})}
